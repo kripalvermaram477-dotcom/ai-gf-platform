@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>AI GF Bot Platform & Manager</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="logo-badge">
+          <span class="heart-pulse">💖</span>
+        </div>
+        <div>
+          <h1 class="app-title">AI GF Bot Studio</h1>
+          <p class="app-subtitle">Telegram Multi-Bot Manager, AI Persona Crafter & Self-Healing Hub</p>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="status-indicator" id="system-status-indicator">
+          <span class="status-dot online"></span>
+          <span class="status-text" id="system-status-text">24/7 Live</span>
+        </div>
+        <button class="btn btn-primary btn-sm" id="btn-open-add-bot">
+          <span>+ Add Bot</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="tab-nav">
+      <button class="tab-btn active" data-tab="bots">
+        <span class="tab-icon">🤖</span>
+        <span>My Bots</span>
+        <span class="badge" id="bots-count-badge">0</span>
+      </button>
+      <button class="tab-btn" data-tab="simulator">
+        <span class="tab-icon">💬</span>
+        <span>Test Chat</span>
+        <span class="badge badge-accent">Live</span>
+      </button>
+      <button class="tab-btn" data-tab="studio">
+        <span class="tab-icon">🎨</span>
+        <span>Persona Studio</span>
+      </button>
+      <button class="tab-btn" data-tab="broadcast">
+        <span class="tab-icon">📢</span>
+        <span>Broadcast</span>
+      </button>
+      <button class="tab-btn" data-tab="users">
+        <span class="tab-icon">👥</span>
+        <span>Users CRM</span>
+      </button>
+      <button class="tab-btn" data-tab="copilot">
+        <span class="tab-icon">🧠</span>
+        <span>AI Copilot</span>
+      </button>
+      <button class="tab-btn" data-tab="customizer">
+        <span class="tab-icon">⚙️</span>
+        <span>Behavior</span>
+      </button>
+      <button class="tab-btn" data-tab="logs">
+        <span class="tab-icon">🛡️</span>
+        <span>Auto-Heal</span>
+      </button>
+      <button class="tab-btn" data-tab="settings">
+        <span class="tab-icon">🔑</span>
+        <span>Settings & Backup</span>
+      </button>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      
+      <!-- TAB 1: BOTS LIST -->
+      <section id="tab-bots" class="tab-pane active">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Connected Bots</h2>
+            <p class="section-desc">Manage, monitor and run your Telegram AI girlfriend bots simultaneously</p>
+          </div>
+          <div class="action-bar">
+            <button class="btn btn-secondary btn-sm" id="btn-refresh-bots">🔄 Refresh</button>
+          </div>
+        </div>
+
+        <div id="bots-grid" class="bots-grid">
+          <!-- Dynamically populated -->
+        </div>
+
+        <div id="no-bots-card" class="empty-state" style="display: none;">
+          <div class="empty-icon">🤖</div>
+          <h3>Abhi koi bot connected nahi hai</h3>
+          <p>Apna pehla Telegram AI GF bot connect karne ke liye niche button dabayein!</p>
+          <button class="btn btn-primary" onclick="openAddBotModal()">+ Connect Telegram Bot</button>
+        </div>
+      </section>
+
+      <!-- TAB 2: LIVE TEST CHAT SIMULATOR -->
+      <section id="tab-simulator" class="tab-pane">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">In-Dashboard Live Chat Simulator</h2>
+            <p class="section-desc">Telegram kholne ki zaroorat nahi! Yahan apne bot ke saath directly chat karke testing karein.</p>
+          </div>
+          <div class="action-bar">
+            <button class="btn btn-secondary btn-sm" id="btn-clear-simulator">🧹 Clear Chat</button>
+          </div>
+        </div>
+
+        <div class="card simulator-card">
+          <div class="simulator-top">
+            <label for="sim-bot-select">Select Bot to Chat With:</label>
+            <select id="sim-bot-select" class="form-select"></select>
+          </div>
+
+          <div id="simulator-messages" class="simulator-messages">
+            <div class="sim-msg model">
+              <div class="msg-bubble">Hii! ❤️ Mujhse baat karke dekho, main yahan live test chat ke liye ready hoon!</div>
+            </div>
+          </div>
+
+          <div class="simulator-input-bar">
+            <input type="text" id="sim-input-text" class="form-input" placeholder="Type a message to your GF bot...">
+            <button class="btn btn-primary" id="btn-sim-send">Send 💌</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: AI PERSONA STUDIO (1-Click Character Generator) -->
+      <section id="tab-studio" class="tab-pane">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">🎨 AI Persona Studio</h2>
+            <p class="section-desc">Sirf ek line me apna idea likhein (e.g. "Doctor girlfriend jo bohot caring ho"), aur AI poora character automatically design kar dega!</p>
+          </div>
+        </div>
+
+        <div class="card studio-card">
+          <div class="form-group">
+            <label for="studio-idea-input">Aapka Character Idea:</label>
+            <div class="input-with-button">
+              <input type="text" id="studio-idea-input" class="form-input" placeholder="e.g. Cute college senior anime girl jo thoda tease kare aur Hinglish me baat kare">
+              <button class="btn btn-gradient" id="btn-studio-generate">✨ Generate Persona</button>
+            </div>
+          </div>
+
+          <div class="studio-quick-chips">
+            <span class="hint-title">Try ideas:</span>
+            <button class="chip-btn" onclick="setStudioIdea('Sweet medical student girlfriend who reminds me to drink water and eat')">"Medical student girlfriend"</button>
+            <button class="chip-btn" onclick="setStudioIdea('Otaku gamer anime girlfriend who plays Valorant and uses cute emotes')">"Otaku gamer girl"</button>
+            <button class="chip-btn" onclick="setStudioIdea('Possessive childhood bestfriend who secretly has huge feelings')">"Childhood bestfriend"</button>
+          </div>
+
+          <!-- Generated Persona Preview -->
+          <div id="studio-preview-box" class="studio-preview-box" style="display: none;">
+            <div class="preview-header">
+              <h3 id="studio-result-name">Character Name</h3>
+              <span class="result-badge" id="studio-result-vibe">Vibe Tagline</span>
+            </div>
+            
+            <div class="form-group">
+              <label>System Prompt Generated by AI:</label>
+              <textarea id="studio-result-prompt" class="form-textarea font-mono" rows="6"></textarea>
+            </div>
+
+            <div class="studio-actions">
+              <button class="btn btn-secondary" onclick="document.getElementById('studio-preview-box').style.display='none'">Dismiss</button>
+              <button class="btn btn-primary" id="btn-studio-apply-to-bot">🚀 Use this Persona for a Bot</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: BROADCAST SYSTEM -->
+      <section id="tab-broadcast" class="tab-pane">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">📢 Mass Broadcast Announcement</h2>
+            <p class="section-desc">Apne bot se chat karne wale sabhi users ko 1-click me romantic message ya announcement bhejein!</p>
+          </div>
+        </div>
+
+        <div class="card broadcast-card">
+          <div class="form-group">
+            <label for="broadcast-bot-select">Select Bot:</label>
+            <select id="broadcast-bot-select" class="form-select"></select>
+          </div>
+
+          <div class="broadcast-quick-templates">
+            <span class="hint-title">Quick Templates:</span>
+            <button class="chip-btn" onclick="setBroadcastText('Good morning mere pyare babu! ❤️ Uth jao, aapka din bohot pyara aur mast ho!')">"Morning Love"</button>
+            <button class="chip-btn" onclick="setBroadcastText('Good night jaan ✨ Sone se pehle meri yaad aayi kya? Sweet dreams!')">"Night Hug"</button>
+            <button class="chip-btn" onclick="setBroadcastText('Areey babu, itni der se baat nahi hui! Kahan busy ho? Jaldi aao na!')">"Miss You"</button>
+          </div>
+
+          <div class="form-group">
+            <label for="broadcast-message-text">Broadcast Message:</label>
+            <textarea id="broadcast-message-text" class="form-textarea" rows="4" placeholder="Apna message yahan likhein..."></textarea>
+          </div>
+
+          <div class="broadcast-footer">
+            <span class="subtle-text" id="broadcast-reach-estimate">Select a bot to see audience count</span>
+            <button class="btn btn-gradient" id="btn-send-broadcast">🚀 Send Broadcast Now</button>
+          </div>
+
+          <div id="broadcast-result-box" class="broadcast-result-box" style="display: none;"></div>
+        </div>
+      </section>
+
+      <!-- TAB 5: USERS CRM -->
+      <section id="tab-users" class="tab-pane">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">👥 Active Users & CRM</h2>
+            <p class="section-desc">Dekhein kaun-kaun aapke bot se baatein kar raha hai aur unki chat history check karein.</p>
+          </div>
+          <div class="action-bar">
+            <select id="crm-bot-select" class="form-select-sm"></select>
+            <button class="btn btn-secondary btn-sm" id="btn-refresh-users">🔄 Refresh</button>
+          </div>
+        </div>
+
+        <div id="users-table-container" class="card">
+          <div id="users-list" class="users-list">
+            <!-- Populated via JS -->
+          </div>
+        </div>
+
+        <!-- User Chat History Modal -->
+        <div id="user-history-modal" class="modal-overlay" style="display: none;">
+          <div class="modal-card modal-lg">
+            <div class="modal-header">
+              <h3 id="history-modal-title">User Chat History</h3>
+              <button class="btn-icon" onclick="document.getElementById('user-history-modal').style.display='none'">✕</button>
+            </div>
+            <div class="modal-body" id="history-modal-body" style="max-height: 400px; overflow-y: auto;">
+              <!-- History messages -->
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-danger btn-sm" id="btn-clear-user-memory">🗑️ Clear User Memory</button>
+              <button class="btn btn-secondary btn-sm" onclick="document.getElementById('user-history-modal').style.display='none'">Close</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 6: AI COPILOT -->
+      <section id="tab-copilot" class="tab-pane">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">AI Bot Copilot</h2>
+            <p class="section-desc">Natural language me instructions dein aur AI aapke bot ke behavior, personality ya prompt ko automatically change karega!</p>
+          </div>
+        </div>
+
+        <div class="copilot-card">
+          <div class="copilot-bot-select">
+            <label for="copilot-target-bot">Target Bot Select Karein:</label>
+            <select id="copilot-target-bot" class="form-select"></select>
+          </div>
+
+          <div class="copilot-presets-hint">
+            <span class="hint-title">💡 Try asking:</span>
+            <button class="chip-btn" onclick="setCopilotPrompt('Isko thoda aur clingy aur loving bana do, Hinglish me babu bolke baat kare aur thoda jaldi jealous ho')">"Thoda clingy & jealous bana do"</button>
+            <button class="chip-btn" onclick="setCopilotPrompt('Playful aur witty banao jo cute teasing kare aur emojis use kare')">"Playful & teasing vibe"</button>
+            <button class="chip-btn" onclick="setCopilotPrompt('Deep and emotional girlfriend prompt banao jo late night talks kare')">"Late night deep talks vibe"</button>
+          </div>
+
+          <div class="copilot-input-box">
+            <textarea id="copilot-instruction" class="form-textarea" rows="3" placeholder="Yahan natural language me instruction likhein... (e.g. 'Aisha ko bolo ki wo sirf Hinglish me baat kare, short cute replies de aur babu shona bole')"></textarea>
+            <div class="copilot-input-footer">
+              <span id="copilot-status-indicator" class="subtle-text">Gemini 3.5 AI engine active</span>
+              <button class="btn btn-gradient" id="btn-run-copilot">
+                <span class="btn-spinner" id="copilot-spinner" style="display: none;"></span>
+                <span>✨ Apply with AI</span>
+              </button>
+            </div>
+          </div>
+
+          <div id="copilot-result" class="copilot-result-box" style="display: none;">
+            <div class="result-header">
+              <span class="result-badge">AI Changes Applied!</span>
+              <span class="timestamp" id="copilot-result-time">Just now</span>
+            </div>
+            <div class="result-explanation" id="copilot-explanation"></div>
+            <div class="result-diff">
+              <h4>Updated Personality & System Prompt:</h4>
+              <pre id="copilot-updated-prompt"></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 7: BOT BEHAVIOR CUSTOMIZER -->
+      <section id="tab-customizer" class="tab-pane">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Bot Behavior & Personality Customizer</h2>
+            <p class="section-desc">Manually fine-tune bot tone, presets, system prompts and temperature</p>
+          </div>
+        </div>
+
+        <div class="card customizer-card">
+          <div class="form-group">
+            <label for="customizer-bot-select">Select Bot to Edit:</label>
+            <select id="customizer-bot-select" class="form-select"></select>
+          </div>
+
+          <div class="presets-row">
+            <span class="label-text">Quick Vibe Presets:</span>
+            <div class="preset-buttons" id="preset-buttons-container"></div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label for="edit-bot-name">Girlfriend Name:</label>
+              <input type="text" id="edit-bot-name" class="form-input" placeholder="e.g. Aisha, Riya">
+            </div>
+            <div class="form-group flex-1">
+              <label for="edit-bot-language">Primary Language:</label>
+              <select id="edit-bot-language" class="form-select">
+                <option value="hinglish">Hinglish (Hindi + English natural mix)</option>
+                <option value="hindi">Hindi</option>
+                <option value="english">English</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="edit-bot-vibe">Relationship Vibe / Character Tagline:</label>
+            <input type="text" id="edit-bot-vibe" class="form-input" placeholder="e.g. Sweet, caring and asks about your day">
+          </div>
+
+          <div class="form-group">
+            <label for="edit-bot-prompt">System Prompt (AI instructions):</label>
+            <textarea id="edit-bot-prompt" class="form-textarea font-mono" rows="8" placeholder="Detailed personality prompt..."></textarea>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label for="edit-bot-temperature">Creativity / Temperature: <span id="temp-display">0.8</span></label>
+              <input type="range" id="edit-bot-temperature" min="0.2" max="1.0" step="0.05" value="0.8" class="form-range">
+            </div>
+            <div class="form-group flex-1">
+              <label for="edit-bot-emoji">Emoji Frequency:</label>
+              <select id="edit-bot-emoji" class="form-select">
+                <option value="low">Low (subtle)</option>
+                <option value="moderate">Moderate (natural)</option>
+                <option value="high">High (lots of cute emojis 🥰❤️✨)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="customizer-actions">
+            <button class="btn btn-secondary" id="btn-reset-customizer">Discard</button>
+            <button class="btn btn-primary" id="btn-save-customizer">💾 Save & Apply to Bot</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 8: AUTO-HEAL & LIVE LOGS -->
+      <section id="tab-logs" class="tab-pane">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Self-Healing Engine & Real-Time Logs</h2>
+            <p class="section-desc">Automatic crash prevention, 409 conflict resolution, network drop auto-reconnect & AI error diagnosis</p>
+          </div>
+          <div class="action-bar">
+            <button class="btn btn-secondary btn-sm" id="btn-clear-logs">Clear View</button>
+            <button class="btn btn-gradient btn-sm" id="btn-ai-diagnose">🩺 AI Diagnose Errors</button>
+          </div>
+        </div>
+
+        <div id="ai-diagnosis-card" class="diagnosis-card" style="display: none;">
+          <div class="diagnosis-header">
+            <span class="diagnosis-title">🩺 AI Self-Healing Diagnosis</span>
+            <button class="btn-icon" onclick="document.getElementById('ai-diagnosis-card').style.display='none'">✕</button>
+          </div>
+          <div class="diagnosis-body" id="diagnosis-content"></div>
+          <div class="diagnosis-actions" id="diagnosis-actions"></div>
+        </div>
+
+        <div class="auto-heal-status-banner">
+          <div class="heal-badge">
+            <span class="shield-icon">🛡️</span>
+            <div>
+              <strong>Auto Error-Fix System: <span id="auto-heal-label" class="text-green">ACTIVE</span></strong>
+              <p class="banner-sub">Auto-recovers 409 conflicts, long-polling drops and unhandled exceptions</p>
+            </div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="toggle-auto-heal" checked>
+            <span class="slider round"></span>
+          </label>
+        </div>
+
+        <div class="terminal-container">
+          <div class="terminal-header">
+            <div class="terminal-dots">
+              <span class="dot red"></span>
+              <span class="dot yellow"></span>
+              <span class="dot green"></span>
+            </div>
+            <span class="terminal-title">LIVE TELEGRAM BOT & SYSTEM LOGS</span>
+            <div class="terminal-filter">
+              <select id="log-filter" class="form-select-sm">
+                <option value="all">All Logs</option>
+                <option value="error">Errors & Heals Only</option>
+                <option value="ai">AI Activity</option>
+              </select>
+            </div>
+          </div>
+          <div id="terminal-body" class="terminal-body">
+            <div class="log-line info">[INIT] Listening for events...</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 9: SETTINGS & BACKUP -->
+      <section id="tab-settings" class="tab-pane">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Platform Settings & Backup</h2>
+            <p class="section-desc">Manage Gemini API Key, models, and 1-click cloud backup / restore</p>
+          </div>
+        </div>
+
+        <div class="card settings-card">
+          <div class="form-group">
+            <label for="settings-gemini-key">Google Gemini API Key:</label>
+            <div class="input-with-button">
+              <input type="password" id="settings-gemini-key" class="form-input" placeholder="AQ...">
+              <button class="btn btn-secondary" id="btn-toggle-key-vis">👁️</button>
+            </div>
+            <p class="field-hint">
+              Free Gemini API key aap <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> se le sakte hain.
+            </p>
+          </div>
+
+          <div class="form-group">
+            <label for="settings-gemini-model">Gemini Model:</label>
+            <select id="settings-gemini-model" class="form-select">
+              <option value="gemini-3.5-flash-lite" selected>Gemini 3.5 Flash-Lite (Recommended - Super Fast & Active)</option>
+              <option value="gemini-flash-latest">Gemini Flash Latest</option>
+              <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+            </select>
+          </div>
+
+          <div class="settings-actions">
+            <button class="btn btn-primary" id="btn-save-settings">💾 Save Settings</button>
+          </div>
+
+          <hr style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;">
+
+          <!-- 1-Click Backup & Restore -->
+          <h3 style="font-size: 1rem; margin-bottom: 8px;">📦 1-Click Backup & Restore</h3>
+          <p class="section-desc" style="margin-bottom: 14px;">Apne sabhi bots, custom prompts, aur user chat histories ka backup download karein ya restore karein.</p>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <a href="/api/backup/export" class="btn btn-secondary" download>
+              ⬇️ Download Full Backup (.json)
+            </a>
+            <button class="btn btn-secondary" onclick="document.getElementById('backup-file-input').click()">
+              ⬆️ Restore from Backup (.json)
+            </button>
+            <input type="file" id="backup-file-input" style="display: none;" accept=".json">
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ADD BOT MODAL -->
+    <div id="add-bot-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>+ Connect New Telegram Bot</h3>
+          <button class="btn-icon" id="btn-close-modal">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="modal-bot-token">Telegram Bot Token: <span class="required">*</span></label>
+            <input type="text" id="modal-bot-token" class="form-input font-mono" placeholder="123456789:ABCdef-GHIjklMNOpqrsTUVwxyZ">
+            <p class="field-hint">Telegram me <a href="https://t.me/BotFather" target="_blank">@BotFather</a> par <code>/newbot</code> command bhejkar token praapt karein.</p>
+          </div>
+
+          <div class="form-group">
+            <label for="modal-bot-name">GF Name (Optional):</label>
+            <input type="text" id="modal-bot-name" class="form-input" placeholder="e.g. Aisha">
+          </div>
+
+          <div class="form-group">
+            <label for="modal-bot-preset">Choose Girlfriend Personality Vibe:</label>
+            <select id="modal-bot-preset" class="form-select">
+              <option value="sweet_loving">💖 Aisha - Sweet, Loving & Deeply Caring</option>
+              <option value="playful_teasing">😏 Riya - Playful, Sassy & Bantering</option>
+              <option value="possessive_clingy">🥰 Simran - Clingy, Protective & Loves Attention</option>
+              <option value="tsundere">😤 Kavya - Tsundere (Secretly Loves You)</option>
+              <option value="intellectual_deep">✨ Meera - Deep, Mature & Late Night Chats</option>
+            </select>
+          </div>
+
+          <div class="form-checkbox">
+            <input type="checkbox" id="modal-bot-autostart" checked>
+            <label for="modal-bot-autostart">Connect hone ke baad turant Start kar dein</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="btn-cancel-modal">Cancel</button>
+          <button class="btn btn-primary" id="btn-submit-add-bot">
+            <span class="btn-spinner" id="modal-spinner" style="display: none;"></span>
+            <span>Connect & Launch Bot</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
