@@ -1,12 +1,9 @@
 services:
   - type: web
-    name: telegram-ai-gf-manager
-    runtime: node
+    name: ai-gf-platform
+    env: docker
     plan: free
-    buildCommand: pnpm install
-    startCommand: node server.js
+    dockerfilePath: Dockerfile
     envVars:
       - key: PORT
         value: 3000
-      - key: GEMINI_API_KEY
-        sync: false
