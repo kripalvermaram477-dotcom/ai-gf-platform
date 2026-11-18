@@ -232,11 +232,26 @@ async function loadBots() {
 
     botsCountBadge.textContent = appState.bots.length;
 
+    const restoreBanner = document.getElementById('local-restore-banner');
     if (appState.bots.length === 0) {
       botsGrid.innerHTML = '';
       noBotsCard.style.display = 'block';
+
+      // Check if browser has backup saved
+      const localBackup = localStorage.getItem('ai_gf_bots_backup');
+      if (localBackup && restoreBanner) {
+        try {
+          const parsed = JSON.parse(localBackup);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            restoreBanner.style.display = 'flex';
+          }
+        } catch (_) {}
+      }
     } else {
       noBotsCard.style.display = 'none';
+      if (restoreBanner) restoreBanner.style.display = 'none';
+      // Save local backup in browser
+      localStorage.setItem('ai_gf_bots_backup', JSON.stringify(appState.bots));
       renderBotsList();
     }
 
@@ -820,6 +835,44 @@ function setupModal() {
   });
 
   document.getElementById('btn-refresh-bots').addEventListener('click', loadBots);
+
+  const btnAutoRestore = document.getElementById('btn-auto-restore-bots');
+  if (btnAutoRestore) {
+    btnAutoRestore.addEventListener('click', async () => {
+      const localBackup = localStorage.getItem('ai_gf_bots_backup');
+      if (!localBackup) return;
+      try {
+        const parsed = JSON.parse(localBackup);
+        btnAutoRestore.disabled = true;
+        btnAutoRestore.textContent = "Restoring...";
+        for (const b of parsed) {
+          if (b.token) {
+            await authFetch('/api/bots', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                token: b.token,
+                name: b.settings?.name,
+                preset: b.settings?.preset || 'sweet_loving',
+                autoStart: true,
+                customSettings: {
+                  ...b.settings,
+                  aiProvider: b.aiProvider || 'pollinations'
+                }
+              })
+            });
+          }
+        }
+        showToast("Bots successfully restored from browser memory!", "success");
+        await loadBots();
+      } catch (e) {
+        alert("Restore failed: " + e.message);
+      } finally {
+        btnAutoRestore.disabled = false;
+        btnAutoRestore.textContent = "🔄 1-Click Restore Bots";
+      }
+    });
+  }
 }
 
 // 10. Bot Behavior Customizer

@@ -517,4 +517,23 @@ app.listen(PORT, '0.0.0.0', async () => {
   } catch (e) {
     console.error("Auto-start error:", e.message);
   }
+
+  // Check again after 3 seconds in case bots were synced from GitHub cloud storage
+  setTimeout(async () => {
+    try {
+      await botManager.startAllConfiguredBots();
+    } catch (_) {}
+  }, 3500);
+
+  // Anti-Sleep Keep-Alive Engine for Render Cloud (prevents 15-minute sleep)
+  const RENDER_EXTERNAL_URL = process.env.RENDER_EXTERNAL_URL;
+  if (RENDER_EXTERNAL_URL) {
+    console.log(`[Anti-Sleep] Keep-alive worker started for ${RENDER_EXTERNAL_URL}`);
+    setInterval(() => {
+      fetch(`${RENDER_EXTERNAL_URL}/api/status`)
+        .then(r => r.json())
+        .then(() => console.log('[Anti-Sleep] Ping ok - Render kept awake 24/7'))
+        .catch(err => console.warn('[Anti-Sleep] Ping error:', err.message));
+    }, 9 * 60 * 1000); // 9 minutes
+  }
 });
