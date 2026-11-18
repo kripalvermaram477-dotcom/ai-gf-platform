@@ -39,6 +39,64 @@ if (process.env.GEMINI_API_KEY && !store.getConfig().geminiApiKey) {
   store.setGeminiApiKey(process.env.GEMINI_API_KEY);
 }
 
+// ================= AUTH MIDDLEWARE =================
+app.use((req, res, next) => {
+  // Public routes that don't need authentication
+  if (
+    !req.path.startsWith('/api') ||
+    req.path === '/api/auth/login' ||
+    req.path === '/api/auth/verify' ||
+    req.path === '/api/status' ||
+    req.path === '/api/presets'
+  ) {
+    return next();
+  }
+
+  const authHeader = req.headers.authorization || req.headers['x-admin-token'];
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+
+  if (store.validateToken(token)) {
+    return next();
+  }
+
+  return res.status(401).json({ error: "Unauthorized. Please login with Admin credentials." });
+});
+
+// ================= AUTH ROUTES =================
+app.post('/api/auth/login', (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: "Username and password required" });
+  }
+  const result = store.verifyAdmin(username.trim(), password.trim());
+  if (result.success) {
+    errorHealer.log('info', `Admin logged in successfully (${username})`);
+    return res.json(result);
+  }
+  res.status(401).json({ error: result.error });
+});
+
+app.get('/api/auth/verify', (req, res) => {
+  const token = req.headers['x-admin-token'] || req.headers.authorization?.slice(7);
+  res.json({ authenticated: store.validateToken(token) });
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  const token = req.headers['x-admin-token'] || req.headers.authorization?.slice(7);
+  store.logoutAdmin(token);
+  res.json({ success: true });
+});
+
+app.post('/api/auth/change-credentials', (req, res) => {
+  const { newUsername, newPassword } = req.body;
+  if (!newPassword || newPassword.length < 4) {
+    return res.status(400).json({ error: "Password must be at least 4 characters long" });
+  }
+  store.changeAdminCredentials(newUsername, newPassword);
+  errorHealer.log('info', "Admin credentials updated.");
+  res.json({ success: true, message: "Credentials updated successfully" });
+});
+
 // ================= API ROUTES =================
 
 // 1. Overall System Status
@@ -64,19 +122,24 @@ app.get('/api/config', (req, res) => {
   res.json({
     geminiApiKey: config.geminiApiKey ? `${config.geminiApiKey.substring(0, 6)}...${config.geminiApiKey.slice(-4)}` : '',
     hasGeminiKey: Boolean(config.geminiApiKey),
-    geminiModel: config.geminiModel || 'gemini-2.5-flash',
+    geminiModel: config.geminiModel || 'gemini-3.5-flash-lite',
+    aiProvider: config.aiProvider || 'auto',
     autoHealEnabled: config.autoHealEnabled
   });
 });
 
 app.post('/api/config', (req, res) => {
-  const { geminiApiKey, geminiModel, autoHealEnabled } = req.body;
+  const { geminiApiKey, geminiModel, aiProvider, autoHealEnabled } = req.body;
   if (geminiApiKey !== undefined && geminiApiKey !== '') {
     store.setGeminiApiKey(geminiApiKey);
     errorHealer.log('info', 'Gemini API Key updated.');
   }
   if (geminiModel !== undefined) {
     store.setGeminiModel(geminiModel);
+  }
+  if (aiProvider !== undefined) {
+    store.setAiProvider(aiProvider);
+    errorHealer.log('info', `AI Provider set to: ${aiProvider}`);
   }
   if (autoHealEnabled !== undefined) {
     store.setAutoHeal(autoHealEnabled);
@@ -298,8 +361,8 @@ app.post('/api/bots/:id/simulate', async (req, res) => {
     if (!bot) return res.status(404).json({ error: "Bot not found" });
 
     const globalConfig = store.getConfig();
-    const apiKey = bot.geminiApiKey || globalConfig.geminiApiKey;
-    if (!apiKey) return res.status(400).json({ error: "Gemini API key is required" });
+    const apiKey = bot.geminiApiKey || globalConfig.geminiApiKey || "";
+    const provider = bot.aiProvider || globalConfig.aiProvider || "auto";
 
     const history = store.getSimulatorHistory(botId);
     store.addSimulatorMessage(botId, 'user', message);
@@ -307,6 +370,7 @@ app.post('/api/bots/:id/simulate', async (req, res) => {
     const reply = await geminiService.generateGfReply({
       apiKey,
       model: globalConfig.geminiModel || 'gemini-3.5-flash-lite',
+      provider,
       systemPrompt: bot.settings.systemPrompt,
       history,
       userMessage: message,

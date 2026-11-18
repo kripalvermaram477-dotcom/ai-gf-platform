@@ -18,9 +18,42 @@ const botsCountBadge = document.getElementById('bots-count-badge');
 const addBotModal = document.getElementById('add-bot-modal');
 const terminalBody = document.getElementById('terminal-body');
 const toastEl = document.getElementById('toast');
+const loginOverlay = document.getElementById('admin-login-overlay');
+const mainApp = document.getElementById('main-app');
+
+// Auth wrapper around fetch
+function authFetch(url, options = {}) {
+  const token = localStorage.getItem('adminToken');
+  const headers = options.headers ? { ...options.headers } : {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+    headers['x-admin-token'] = token;
+  }
+  options.headers = headers;
+
+  return fetch(url, options).then(res => {
+    if (res.status === 401 && !url.includes('/api/auth/login')) {
+      localStorage.removeItem('adminToken');
+      showLoginScreen();
+      throw new Error("Session expired. Please login again.");
+    }
+    return res;
+  });
+}
+
+function showLoginScreen() {
+  loginOverlay.style.display = 'flex';
+  mainApp.style.display = 'none';
+}
+
+function showMainApp() {
+  loginOverlay.style.display = 'none';
+  mainApp.style.display = 'block';
+}
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
+  setupAuth();
   setupTabs();
   setupModal();
   setupCustomizer();
@@ -32,12 +65,94 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupSettings();
   setupBackupRestore();
   setupAutoHealToggle();
-  initLogStream();
 
+  // Check auth status
+  const token = localStorage.getItem('adminToken');
+  if (!token) {
+    showLoginScreen();
+  } else {
+    try {
+      const res = await fetch('/api/auth/verify', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.authenticated) {
+        showMainApp();
+        initApp();
+      } else {
+        localStorage.removeItem('adminToken');
+        showLoginScreen();
+      }
+    } catch (_) {
+      showLoginScreen();
+    }
+  }
+});
+
+async function initApp() {
+  initLogStream();
   await loadPresets();
   await loadConfig();
   await loadBots();
-});
+}
+
+function setupAuth() {
+  const btnLogin = document.getElementById('btn-submit-login');
+  const userInput = document.getElementById('login-username');
+  const passInput = document.getElementById('login-password');
+  const errBox = document.getElementById('login-error-alert');
+  const btnLogout = document.getElementById('btn-admin-logout');
+
+  const doLogin = async () => {
+    const username = userInput.value.trim();
+    const password = passInput.value.trim();
+    if (!username || !password) {
+      errBox.style.display = 'block';
+      errBox.textContent = "Please enter both username and password";
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+      if (res.ok && data.token) {
+        localStorage.setItem('adminToken', data.token);
+        errBox.style.display = 'none';
+        showMainApp();
+        initApp();
+        showToast("Welcome back, Admin!", "success");
+      } else {
+        errBox.style.display = 'block';
+        errBox.textContent = data.error || "Login failed";
+      }
+    } catch (e) {
+      errBox.style.display = 'block';
+      errBox.textContent = `Network error: ${e.message}`;
+    }
+  };
+
+  btnLogin.addEventListener('click', doLogin);
+  passInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') doLogin();
+  });
+
+  btnLogout.addEventListener('click', async () => {
+    const token = localStorage.getItem('adminToken');
+    if (token) {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      }).catch(() => {});
+    }
+    localStorage.removeItem('adminToken');
+    showLoginScreen();
+    showToast("Logged out successfully.", "info");
+  });
+}
 
 // Toast notification helper
 function showToast(message, type = 'info') {
@@ -83,11 +198,12 @@ async function loadPresets() {
 
 async function loadConfig() {
   try {
-    const res = await fetch('/api/config');
+    const res = await authFetch('/api/config');
     appState.config = await res.json();
 
     const keyInput = document.getElementById('settings-gemini-key');
     const modelSelect = document.getElementById('settings-gemini-model');
+    const providerSelect = document.getElementById('settings-ai-provider');
     const toggleAutoHeal = document.getElementById('toggle-auto-heal');
     const autoHealLabel = document.getElementById('auto-heal-label');
 
@@ -96,6 +212,9 @@ async function loadConfig() {
     }
     if (appState.config.geminiModel) {
       modelSelect.value = appState.config.geminiModel;
+    }
+    if (appState.config.aiProvider) {
+      providerSelect.value = appState.config.aiProvider;
     }
     toggleAutoHeal.checked = Boolean(appState.config.autoHealEnabled);
     autoHealLabel.textContent = toggleAutoHeal.checked ? "ACTIVE" : "OFF";
@@ -108,7 +227,7 @@ async function loadConfig() {
 // 3. Load & Render Bots
 async function loadBots() {
   try {
-    const res = await fetch('/api/bots');
+    const res = await authFetch('/api/bots');
     appState.bots = await res.json();
 
     botsCountBadge.textContent = appState.bots.length;
@@ -190,7 +309,7 @@ function renderBotsList() {
 window.startBot = async function(id) {
   try {
     showToast("Starting bot...", "info");
-    const res = await fetch(`/api/bots/${id}/start`, { method: 'POST' });
+    const res = await authFetch(`/api/bots/${id}/start`, { method: 'POST' });
     const data = await res.json();
     if (res.ok) {
       showToast("Bot started successfully! Online on Telegram.", "success");
@@ -205,7 +324,7 @@ window.startBot = async function(id) {
 
 window.stopBot = async function(id) {
   try {
-    const res = await fetch(`/api/bots/${id}/stop`, { method: 'POST' });
+    const res = await authFetch(`/api/bots/${id}/stop`, { method: 'POST' });
     if (res.ok) {
       showToast("Bot stopped.", "info");
       await loadBots();
@@ -218,7 +337,7 @@ window.stopBot = async function(id) {
 window.restartBot = async function(id) {
   try {
     showToast("Restarting bot...", "info");
-    const res = await fetch(`/api/bots/${id}/restart`, { method: 'POST' });
+    const res = await authFetch(`/api/bots/${id}/restart`, { method: 'POST' });
     const data = await res.json();
     if (res.ok) {
       showToast("Bot restarted smoothly!", "success");
@@ -234,7 +353,7 @@ window.restartBot = async function(id) {
 window.deleteBot = async function(id, name) {
   if (!confirm(`Kya aap sach me '${name}' bot ko delete karna chahte hain?`)) return;
   try {
-    const res = await fetch(`/api/bots/${id}`, { method: 'DELETE' });
+    const res = await authFetch(`/api/bots/${id}`, { method: 'DELETE' });
     if (res.ok) {
       showToast("Bot deleted.", "info");
       await loadBots();
@@ -268,7 +387,7 @@ async function loadSimulatorMessages() {
   const botId = document.getElementById('sim-bot-select').value;
   if (!botId) return;
   try {
-    const res = await fetch(`/api/bots/${botId}/simulate`);
+    const res = await authFetch(`/api/bots/${botId}/simulate`);
     const data = await res.json();
     const container = document.getElementById('simulator-messages');
     container.innerHTML = '';
@@ -308,13 +427,11 @@ function setupSimulator() {
     if (!botId || !text) return;
 
     input.value = '';
-    // Append user message immediately
     const userDiv = document.createElement('div');
     userDiv.className = 'sim-msg user';
     userDiv.innerHTML = `<div class="msg-bubble">${escapeHtml(text)}</div>`;
     container.appendChild(userDiv);
 
-    // Typing bubble
     const typingDiv = document.createElement('div');
     typingDiv.className = 'sim-msg model';
     typingDiv.innerHTML = `<div class="msg-bubble"><em>typing... ❤️</em></div>`;
@@ -322,7 +439,7 @@ function setupSimulator() {
     container.scrollTop = container.scrollHeight;
 
     try {
-      const res = await fetch(`/api/bots/${botId}/simulate`, {
+      const res = await authFetch(`/api/bots/${botId}/simulate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text })
@@ -345,7 +462,7 @@ function setupSimulator() {
       typingDiv.remove();
       const errDiv = document.createElement('div');
       errDiv.className = 'sim-msg model';
-      errDiv.innerHTML = `<div class="msg-bubble" style="color:#f87171;">⚠️ Network Error: ${err.message}</div>`;
+      errDiv.innerHTML = `<div class="msg-bubble" style="color:#f87171;">⚠️ ${err.message}</div>`;
       container.appendChild(errDiv);
     }
     container.scrollTop = container.scrollHeight;
@@ -359,7 +476,7 @@ function setupSimulator() {
   document.getElementById('btn-clear-simulator').addEventListener('click', async () => {
     const botId = select.value;
     if (!botId) return;
-    await fetch(`/api/bots/${botId}/simulate`, { method: 'DELETE' });
+    await authFetch(`/api/bots/${botId}/simulate`, { method: 'DELETE' });
     showToast("Simulator chat cleared", "info");
     loadSimulatorMessages();
   });
@@ -390,7 +507,7 @@ function setupStudio() {
     btnGen.disabled = true;
 
     try {
-      const res = await fetch('/api/ai/craft-persona', {
+      const res = await authFetch('/api/ai/craft-persona', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ idea })
@@ -483,7 +600,7 @@ function setupBroadcast() {
     btnSend.disabled = true;
 
     try {
-      const res = await fetch(`/api/bots/${botId}/broadcast`, {
+      const res = await authFetch(`/api/bots/${botId}/broadcast`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message })
@@ -528,7 +645,7 @@ async function loadCrmUsers() {
   if (!botId) return;
 
   try {
-    const res = await fetch(`/api/bots/${botId}/users`);
+    const res = await authFetch(`/api/bots/${botId}/users`);
     const users = await res.json();
 
     if (users.length === 0) {
@@ -573,7 +690,7 @@ window.viewUserHistory = async (botId, userId, userName) => {
   modal.style.display = 'flex';
 
   try {
-    const res = await fetch(`/api/bots/${botId}/users/${userId}/history`);
+    const res = await authFetch(`/api/bots/${botId}/users/${userId}/history`);
     const history = await res.json();
 
     if (history.length === 0) {
@@ -602,7 +719,7 @@ function setupCrm() {
     if (!confirm("Are you sure you want to clear conversation memory for this user?")) return;
     const { botId, userId } = appState.activeCrmUserId;
 
-    await fetch(`/api/bots/${botId}/users/${userId}/history`, { method: 'DELETE' });
+    await authFetch(`/api/bots/${botId}/users/${userId}/history`, { method: 'DELETE' });
     showToast("User conversation memory cleared!", "info");
     document.getElementById('user-history-modal').style.display = 'none';
   });
@@ -619,7 +736,7 @@ function setupBackupRestore() {
     reader.onload = async (event) => {
       try {
         const backupData = JSON.parse(event.target.result);
-        const res = await fetch('/api/backup/import', {
+        const res = await authFetch('/api/backup/import', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(backupData)
@@ -674,7 +791,7 @@ function setupModal() {
 
     try {
       const customSettings = appState.pendingCustomSettings || {};
-      const res = await fetch('/api/bots', {
+      const res = await authFetch('/api/bots', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, name: name || undefined, preset, autoStart, customSettings })
@@ -796,7 +913,7 @@ function setupCustomizer() {
     };
 
     try {
-      const res = await fetch(`/api/bots/${appState.selectedBotId}`, {
+      const res = await authFetch(`/api/bots/${appState.selectedBotId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates)
@@ -860,7 +977,7 @@ function setupCopilot() {
     btnRun.disabled = true;
 
     try {
-      const res = await fetch('/api/ai/copilot', {
+      const res = await authFetch('/api/ai/copilot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ botId, instruction })
@@ -917,11 +1034,11 @@ function initLogStream() {
     const diagActions = document.getElementById('diagnosis-actions');
 
     diagCard.style.display = 'block';
-    diagContent.innerHTML = "<em>Analyzing logs and error states with Gemini AI...</em>";
+    diagContent.innerHTML = "<em>Analyzing logs and error states with AI...</em>";
     diagActions.innerHTML = "";
 
     try {
-      const res = await fetch('/api/ai/diagnose', {
+      const res = await authFetch('/api/ai/diagnose', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ botId: appState.selectedBotId || null })
@@ -957,7 +1074,7 @@ function initLogStream() {
 async function executeAutoFix(botId, action) {
   try {
     showToast(`Executing fix: ${action}...`, "info");
-    const res = await fetch('/api/ai/auto-fix', {
+    const res = await authFetch('/api/ai/auto-fix', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ botId, action })
@@ -994,7 +1111,7 @@ function setupAutoHealToggle() {
     label.className = isEnabled ? "text-green" : "text-sub";
 
     try {
-      await fetch('/api/config', {
+      await authFetch('/api/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ autoHealEnabled: isEnabled })
@@ -1006,11 +1123,12 @@ function setupAutoHealToggle() {
   });
 }
 
-// 13. Settings
+// 13. Settings & Security
 function setupSettings() {
   const btnSave = document.getElementById('btn-save-settings');
   const keyInput = document.getElementById('settings-gemini-key');
   const modelSelect = document.getElementById('settings-gemini-model');
+  const providerSelect = document.getElementById('settings-ai-provider');
   const btnToggleVis = document.getElementById('btn-toggle-key-vis');
 
   btnToggleVis.addEventListener('click', () => {
@@ -1020,18 +1138,19 @@ function setupSettings() {
   btnSave.addEventListener('click', async () => {
     const geminiApiKey = keyInput.value.trim();
     const geminiModel = modelSelect.value;
+    const aiProvider = providerSelect.value;
 
-    const body = { geminiModel };
+    const body = { geminiModel, aiProvider };
     if (geminiApiKey) body.geminiApiKey = geminiApiKey;
 
     try {
-      const res = await fetch('/api/config', {
+      const res = await authFetch('/api/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
       if (res.ok) {
-        showToast("Settings saved successfully!", "success");
+        showToast("AI Engine settings saved successfully!", "success");
         keyInput.value = '';
         await loadConfig();
       } else {
@@ -1040,6 +1159,39 @@ function setupSettings() {
       }
     } catch (err) {
       alert(`Network error: ${err.message}`);
+    }
+  });
+
+  // Admin credentials update
+  const btnSaveCreds = document.getElementById('btn-save-admin-creds');
+  const userInput = document.getElementById('settings-admin-user');
+  const passInput = document.getElementById('settings-admin-pass');
+
+  btnSaveCreds.addEventListener('click', async () => {
+    const newUsername = userInput.value.trim();
+    const newPassword = passInput.value.trim();
+
+    if (!newPassword || newPassword.length < 4) {
+      alert("Password must be at least 4 characters long!");
+      return;
+    }
+
+    try {
+      const res = await authFetch('/api/auth/change-credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newUsername, newPassword })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast("Admin credentials updated! Please login again.", "success");
+        localStorage.removeItem('adminToken');
+        setTimeout(() => showLoginScreen(), 1500);
+      } else {
+        alert(`Error: ${data.error}`);
+      }
+    } catch (err) {
+      alert(`Error: ${err.message}`);
     }
   });
 }

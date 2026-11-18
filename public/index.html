@@ -10,7 +10,39 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
-  <div class="app-container">
+
+  <!-- ADMIN LOGIN OVERLAY -->
+  <div id="admin-login-overlay" class="login-overlay" style="display: none;">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="logo-badge">
+          <span class="heart-pulse">💖</span>
+        </div>
+        <h2>Admin Login</h2>
+        <p>AI GF Platform & Bot Manager Security</p>
+      </div>
+
+      <div id="login-error-alert" class="alert-box" style="display: none;"></div>
+
+      <div class="form-group">
+        <label for="login-username">Admin Username:</label>
+        <input type="text" id="login-username" class="form-input" placeholder="admin" value="admin">
+      </div>
+
+      <div class="form-group">
+        <label for="login-password">Admin Password:</label>
+        <input type="password" id="login-password" class="form-input" placeholder="Password (default: admin123)">
+      </div>
+
+      <button class="btn btn-gradient w-100" id="btn-submit-login">
+        <span>🔐 Login to Dashboard</span>
+      </button>
+      <p class="field-hint text-center" style="margin-top: 12px;">Default credentials: <code>admin</code> / <code>admin123</code></p>
+    </div>
+  </div>
+
+  <!-- MAIN APP CONTAINER -->
+  <div class="app-container" id="main-app" style="display: none;">
     <!-- Header -->
     <header class="app-header">
       <div class="header-left">
@@ -19,7 +51,7 @@
         </div>
         <div>
           <h1 class="app-title">AI GF Bot Studio</h1>
-          <p class="app-subtitle">Telegram Multi-Bot Manager, AI Persona Crafter & Self-Healing Hub</p>
+          <p class="app-subtitle">Telegram Multi-Bot Manager & Pollinations.AI Engine</p>
         </div>
       </div>
       <div class="header-right">
@@ -29,6 +61,9 @@
         </div>
         <button class="btn btn-primary btn-sm" id="btn-open-add-bot">
           <span>+ Add Bot</span>
+        </button>
+        <button class="btn btn-secondary btn-sm" id="btn-admin-logout" title="Logout from Admin Dashboard">
+          <span>🚪 Logout</span>
         </button>
       </div>
     </header>
@@ -71,7 +106,7 @@
       </button>
       <button class="tab-btn" data-tab="settings">
         <span class="tab-icon">🔑</span>
-        <span>Settings & Backup</span>
+        <span>Settings & Security</span>
       </button>
     </nav>
 
@@ -90,9 +125,7 @@
           </div>
         </div>
 
-        <div id="bots-grid" class="bots-grid">
-          <!-- Dynamically populated -->
-        </div>
+        <div id="bots-grid" class="bots-grid"></div>
 
         <div id="no-bots-card" class="empty-state" style="display: none;">
           <div class="empty-icon">🤖</div>
@@ -133,12 +166,12 @@
         </div>
       </section>
 
-      <!-- TAB 3: AI PERSONA STUDIO (1-Click Character Generator) -->
+      <!-- TAB 3: AI PERSONA STUDIO -->
       <section id="tab-studio" class="tab-pane">
         <div class="section-header">
           <div>
             <h2 class="section-title">🎨 AI Persona Studio</h2>
-            <p class="section-desc">Sirf ek line me apna idea likhein (e.g. "Doctor girlfriend jo bohot caring ho"), aur AI poora character automatically design kar dega!</p>
+            <p class="section-desc">Sirf ek line me apna idea likhein, aur AI poora character automatically design kar dega!</p>
           </div>
         </div>
 
@@ -158,7 +191,6 @@
             <button class="chip-btn" onclick="setStudioIdea('Possessive childhood bestfriend who secretly has huge feelings')">"Childhood bestfriend"</button>
           </div>
 
-          <!-- Generated Persona Preview -->
           <div id="studio-preview-box" class="studio-preview-box" style="display: none;">
             <div class="preview-header">
               <h3 id="studio-result-name">Character Name</h3>
@@ -228,21 +260,16 @@
         </div>
 
         <div id="users-table-container" class="card">
-          <div id="users-list" class="users-list">
-            <!-- Populated via JS -->
-          </div>
+          <div id="users-list" class="users-list"></div>
         </div>
 
-        <!-- User Chat History Modal -->
         <div id="user-history-modal" class="modal-overlay" style="display: none;">
           <div class="modal-card modal-lg">
             <div class="modal-header">
               <h3 id="history-modal-title">User Chat History</h3>
               <button class="btn-icon" onclick="document.getElementById('user-history-modal').style.display='none'">✕</button>
             </div>
-            <div class="modal-body" id="history-modal-body" style="max-height: 400px; overflow-y: auto;">
-              <!-- History messages -->
-            </div>
+            <div class="modal-body" id="history-modal-body" style="max-height: 400px; overflow-y: auto;"></div>
             <div class="modal-footer">
               <button class="btn btn-danger btn-sm" id="btn-clear-user-memory">🗑️ Clear User Memory</button>
               <button class="btn btn-secondary btn-sm" onclick="document.getElementById('user-history-modal').style.display='none'">Close</button>
@@ -276,7 +303,7 @@
           <div class="copilot-input-box">
             <textarea id="copilot-instruction" class="form-textarea" rows="3" placeholder="Yahan natural language me instruction likhein... (e.g. 'Aisha ko bolo ki wo sirf Hinglish me baat kare, short cute replies de aur babu shona bole')"></textarea>
             <div class="copilot-input-footer">
-              <span id="copilot-status-indicator" class="subtle-text">Gemini 3.5 AI engine active</span>
+              <span id="copilot-status-indicator" class="subtle-text">AI engine active (Gemini + Pollinations Free Fallback)</span>
               <button class="btn btn-gradient" id="btn-run-copilot">
                 <span class="btn-spinner" id="copilot-spinner" style="display: none;"></span>
                 <span>✨ Apply with AI</span>
@@ -423,38 +450,74 @@
         </div>
       </section>
 
-      <!-- TAB 9: SETTINGS & BACKUP -->
+      <!-- TAB 9: SETTINGS, AI ENGINE & SECURITY -->
       <section id="tab-settings" class="tab-pane">
         <div class="section-header">
           <div>
-            <h2 class="section-title">Platform Settings & Backup</h2>
-            <p class="section-desc">Manage Gemini API Key, models, and 1-click cloud backup / restore</p>
+            <h2 class="section-title">Platform Settings, AI Engine & Security</h2>
+            <p class="section-desc">Manage AI Engines (Pollinations Free / Gemini), Admin Login Password, and 1-click cloud backup</p>
           </div>
         </div>
 
         <div class="card settings-card">
+          <!-- AI ENGINE CONFIGURATION -->
+          <h3 style="font-size: 1.05rem; margin-bottom: 12px; color: var(--primary);">🤖 AI Engine Provider</h3>
+          
           <div class="form-group">
-            <label for="settings-gemini-key">Google Gemini API Key:</label>
+            <label for="settings-ai-provider">Default AI Provider:</label>
+            <select id="settings-ai-provider" class="form-select">
+              <option value="auto" selected>Auto (Gemini Primary + Pollinations.AI 100% Free Fallback)</option>
+              <option value="pollinations">Pollinations.AI (Always Free & Unlimited - Zero API key needed!)</option>
+              <option value="gemini">Google Gemini Only</option>
+            </select>
+            <p class="field-hint">
+              <strong>Pollinations.AI</strong> me kabhi koi API key nahi lagti aur ye hamesha free rehta hai!
+            </p>
+          </div>
+
+          <div class="form-group">
+            <label for="settings-gemini-key">Google Gemini API Key (Optional):</label>
             <div class="input-with-button">
               <input type="password" id="settings-gemini-key" class="form-input" placeholder="AQ...">
               <button class="btn btn-secondary" id="btn-toggle-key-vis">👁️</button>
             </div>
             <p class="field-hint">
-              Free Gemini API key aap <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> se le sakte hain.
+              Agar aap Gemini use karna chahte hain to key dalein, warna Pollinations.AI se bot bina key ke bhi free chalega!
             </p>
           </div>
 
           <div class="form-group">
             <label for="settings-gemini-model">Gemini Model:</label>
             <select id="settings-gemini-model" class="form-select">
-              <option value="gemini-3.5-flash-lite" selected>Gemini 3.5 Flash-Lite (Recommended - Super Fast & Active)</option>
+              <option value="gemini-3.5-flash-lite" selected>Gemini 3.5 Flash-Lite (Recommended)</option>
               <option value="gemini-flash-latest">Gemini Flash Latest</option>
               <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
             </select>
           </div>
 
           <div class="settings-actions">
-            <button class="btn btn-primary" id="btn-save-settings">💾 Save Settings</button>
+            <button class="btn btn-primary" id="btn-save-settings">💾 Save AI Settings</button>
+          </div>
+
+          <hr style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;">
+
+          <!-- ADMIN SECURITY CREDENTIALS -->
+          <h3 style="font-size: 1.05rem; margin-bottom: 8px; color: #a78bfa;">🔐 Admin Login Credentials</h3>
+          <p class="section-desc" style="margin-bottom: 14px;">Apne dashboard ka password change karein taaki Render public link par koi aur access na kar sake.</p>
+
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label for="settings-admin-user">Admin Username:</label>
+              <input type="text" id="settings-admin-user" class="form-input" placeholder="admin">
+            </div>
+            <div class="form-group flex-1">
+              <label for="settings-admin-pass">New Password:</label>
+              <input type="password" id="settings-admin-pass" class="form-input" placeholder="New secure password">
+            </div>
+          </div>
+
+          <div class="settings-actions">
+            <button class="btn btn-secondary" id="btn-save-admin-creds">🔑 Update Admin Password</button>
           </div>
 
           <hr style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;">
@@ -463,7 +526,7 @@
           <h3 style="font-size: 1rem; margin-bottom: 8px;">📦 1-Click Backup & Restore</h3>
           <p class="section-desc" style="margin-bottom: 14px;">Apne sabhi bots, custom prompts, aur user chat histories ka backup download karein ya restore karein.</p>
           <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-            <a href="/api/backup/export" class="btn btn-secondary" download>
+            <a href="/api/backup/export" class="btn btn-secondary" id="btn-download-backup">
               ⬇️ Download Full Backup (.json)
             </a>
             <button class="btn btn-secondary" onclick="document.getElementById('backup-file-input').click()">
