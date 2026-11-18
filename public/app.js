@@ -790,7 +790,12 @@ function setupModal() {
     btnSubmit.disabled = true;
 
     try {
-      const customSettings = appState.pendingCustomSettings || {};
+      const modalProviderEl = document.getElementById('modal-bot-provider');
+      const aiProvider = modalProviderEl ? modalProviderEl.value : 'pollinations';
+      const customSettings = {
+        ...(appState.pendingCustomSettings || {}),
+        aiProvider
+      };
       const res = await authFetch('/api/bots', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -879,6 +884,8 @@ function loadBotIntoCustomizer(botId) {
   document.getElementById('edit-bot-temperature').value = bot.settings?.temperature ?? 0.8;
   document.getElementById('temp-display').textContent = bot.settings?.temperature ?? 0.8;
   document.getElementById('edit-bot-emoji').value = bot.settings?.emojiUsage || 'moderate';
+  const providerEl = document.getElementById('edit-bot-provider');
+  if (providerEl) providerEl.value = bot.aiProvider || 'pollinations';
 }
 
 window.openCustomizerFor = (botId) => {
@@ -901,7 +908,9 @@ function setupCustomizer() {
   document.getElementById('btn-save-customizer').addEventListener('click', async () => {
     if (!appState.selectedBotId) return;
 
+    const providerEl = document.getElementById('edit-bot-provider');
     const updates = {
+      aiProvider: providerEl ? providerEl.value : 'pollinations',
       settings: {
         name: document.getElementById('edit-bot-name').value.trim(),
         language: document.getElementById('edit-bot-language').value,
@@ -935,22 +944,43 @@ function setupCustomizer() {
   });
 }
 
-// 11. AI Bot Copilot
+// 11. AI Bot Copilot (Powered by Pollinations.AI / Gemini)
 function syncCopilotSelect() {
   const select = document.getElementById('copilot-target-bot');
+  if (!select) return;
   select.innerHTML = '';
+
+  // Allow creating brand new bot persona
+  const optNew = document.createElement('option');
+  optNew.value = '__new__';
+  optNew.textContent = '✨ + Naya Bot Banayein (Create New Bot)';
+  select.appendChild(optNew);
+
   appState.bots.forEach(bot => {
     const opt = document.createElement('option');
     opt.value = bot.id;
-    opt.textContent = `${bot.settings?.name || bot.id} (${bot.info?.username ? '@' + bot.info.username : 'Offline'})`;
+    opt.textContent = `🤖 ${bot.settings?.name || bot.id} (${bot.info?.username ? '@' + bot.info.username : bot.status})`;
     select.appendChild(opt);
   });
-  if (appState.selectedBotId) select.value = appState.selectedBotId;
+
+  if (appState.selectedBotId && appState.bots.some(b => b.id === appState.selectedBotId)) {
+    select.value = appState.selectedBotId;
+  } else if (appState.bots.length > 0) {
+    select.value = appState.bots[0].id;
+  } else {
+    select.value = '__new__';
+  }
 }
 
 window.setCopilotPrompt = (text) => {
-  document.getElementById('copilot-instruction').value = text;
+  const input = document.getElementById('copilot-instruction');
+  if (input) {
+    input.value = text;
+    input.focus();
+  }
 };
+
+let lastCopilotResult = null;
 
 function setupCopilot() {
   const btnRun = document.getElementById('btn-run-copilot');
@@ -959,17 +989,32 @@ function setupCopilot() {
   const resultBox = document.getElementById('copilot-result');
   const explanationEl = document.getElementById('copilot-explanation');
   const updatedPromptEl = document.getElementById('copilot-updated-prompt');
+  const providerSelect = document.getElementById('copilot-provider-select');
+  const indicator = document.getElementById('copilot-status-indicator');
+  const btnLaunch = document.getElementById('btn-copilot-launch-bot');
+  const btnOpenSim = document.getElementById('btn-copilot-open-sim');
+  const badgeEl = document.getElementById('copilot-result-badge');
+
+  if (providerSelect && indicator) {
+    providerSelect.addEventListener('change', () => {
+      const p = providerSelect.value;
+      if (p === 'pollinations') {
+        indicator.textContent = '🌸 Engine: Pollinations.AI (Direct Free, Zero API Key needed)';
+      } else if (p === 'gemini') {
+        indicator.textContent = '⚡ Engine: Google Gemini API';
+      } else {
+        indicator.textContent = '🔄 Engine: Auto (Gemini Primary + Pollinations Fallback)';
+      }
+    });
+  }
 
   btnRun.addEventListener('click', async () => {
     const botId = document.getElementById('copilot-target-bot').value;
     const instruction = instructionInput.value.trim();
+    const provider = providerSelect ? providerSelect.value : 'pollinations';
 
-    if (!botId) {
-      alert("Please select a target bot first!");
-      return;
-    }
     if (!instruction) {
-      alert("Please type instructions for the AI bot engineer!");
+      alert("Kripya AI Copilot ke liye instructions likhein!");
       return;
     }
 
@@ -980,16 +1025,33 @@ function setupCopilot() {
       const res = await authFetch('/api/ai/copilot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ botId, instruction })
+        body: JSON.stringify({ botId, instruction, provider })
       });
       const data = await res.json();
 
       if (res.ok) {
+        lastCopilotResult = data;
         resultBox.style.display = 'block';
         explanationEl.textContent = data.explanation || "Changes applied successfully!";
         updatedPromptEl.textContent = JSON.stringify(data.updatedSettings, null, 2);
-        showToast("AI Copilot has updated your bot!", "success");
-        await loadBots();
+
+        if (data.isNew) {
+          badgeEl.textContent = "✨ Naya Bot Persona Ready!";
+          if (btnLaunch) {
+            btnLaunch.style.display = 'inline-block';
+            btnLaunch.textContent = `🚀 "${data.updatedSettings?.name || 'New Bot'}" Connect Karein`;
+          }
+          if (btnOpenSim) btnOpenSim.style.display = 'none';
+          showToast(`Persona "${data.updatedSettings?.name || 'New Bot'}" Pollinations.AI dwara banaya gaya!`, "success");
+        } else {
+          badgeEl.textContent = "✅ Bot Settings Updated!";
+          if (btnLaunch) btnLaunch.style.display = 'none';
+          if (btnOpenSim) {
+            btnOpenSim.style.display = 'inline-block';
+          }
+          showToast(`Bot "${data.targetLabel}" Pollinations.AI dwara update ho gaya!`, "success");
+          await loadBots();
+        }
       } else {
         alert(`AI Error: ${data.error}`);
       }
@@ -1000,6 +1062,35 @@ function setupCopilot() {
       btnRun.disabled = false;
     }
   });
+
+  if (btnLaunch) {
+    btnLaunch.addEventListener('click', () => {
+      if (!lastCopilotResult?.updatedSettings) return;
+      const s = lastCopilotResult.updatedSettings;
+      appState.pendingCustomSettings = {
+        name: s.name,
+        systemPrompt: s.systemPrompt,
+        relationshipVibe: s.relationshipVibe,
+        temperature: s.temperature || 0.8,
+        emojiUsage: s.emojiUsage || 'moderate',
+        language: s.language || 'hinglish',
+        aiProvider: 'pollinations'
+      };
+
+      if (window.openAddBotModal) window.openAddBotModal();
+      document.getElementById('modal-bot-name').value = s.name || '';
+      if (s.preset) document.getElementById('modal-bot-preset').value = s.preset;
+      const modalProv = document.getElementById('modal-bot-provider');
+      if (modalProv) modalProv.value = 'pollinations';
+    });
+  }
+
+  if (btnOpenSim) {
+    btnOpenSim.addEventListener('click', () => {
+      const simTabBtn = document.querySelector('[data-tab="simulator"]');
+      if (simTabBtn) simTabBtn.click();
+    });
+  }
 }
 
 // 12. Auto-Healer, Live Terminal Logs & AI Diagnose

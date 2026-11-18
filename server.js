@@ -249,33 +249,36 @@ app.post('/api/bots/:id/restart', async (req, res) => {
   }
 });
 
-// 12. AI Bot Copilot: Modify bot using natural language instructions
+// 12. AI Bot Copilot: Modify bot or craft new bot persona using natural language instructions
 app.post('/api/ai/copilot', async (req, res) => {
   try {
-    const { botId, instruction } = req.body;
+    const { botId, instruction, provider = 'pollinations' } = req.body;
     if (!instruction || !instruction.trim()) {
       return res.status(400).json({ error: "Instruction cannot be empty" });
     }
 
-    const currentBot = botId ? store.getBot(botId) : null;
+    const isNew = !botId || botId === '__new__';
+    const currentBot = isNew ? null : store.getBot(botId);
     const globalConfig = store.getConfig();
-    const apiKey = currentBot?.geminiApiKey || globalConfig.geminiApiKey;
+    const apiKey = currentBot?.geminiApiKey || globalConfig.geminiApiKey || '';
 
-    if (!apiKey) {
-      return res.status(400).json({ error: "Gemini API Key missing. Please configure it in Dashboard Settings." });
+    if (provider === 'gemini' && !apiKey) {
+      return res.status(400).json({ error: "Gemini API Key missing. Please switch to Pollinations.AI (Free) or configure Gemini key." });
     }
 
-    errorHealer.log('ai', `AI Copilot executing instruction: "${instruction}" for bot [${currentBot?.settings?.name || 'All/Global'}]`);
+    const targetLabel = isNew ? "Naya Bot Persona" : (currentBot?.settings?.name || botId);
+    errorHealer.log('ai', `AI Copilot [${provider.toUpperCase()}] executing for ${targetLabel}: "${instruction}"`);
 
     const result = await geminiService.aiModifyBot({
       apiKey,
       currentBot,
       userInstruction: instruction,
-      allBots: store.getBots()
+      allBots: store.getBots(),
+      provider
     });
 
-    // If botId provided, apply the updated settings
-    if (botId && currentBot && result.updatedSettings) {
+    // If targeting an existing bot, auto-apply the updated settings
+    if (!isNew && currentBot && result.updatedSettings) {
       store.updateBot(botId, {
         settings: {
           ...currentBot.settings,
@@ -287,9 +290,11 @@ app.post('/api/ai/copilot', async (req, res) => {
 
     res.json({
       success: true,
+      isNew,
+      targetLabel,
       explanation: result.explanation,
       updatedSettings: result.updatedSettings,
-      bot: botId ? store.getBot(botId) : null
+      bot: !isNew && botId ? store.getBot(botId) : null
     });
   } catch (err) {
     console.error("AI Copilot Error:", err);
@@ -303,18 +308,15 @@ app.post('/api/ai/diagnose', async (req, res) => {
     const { botId, errorLog } = req.body;
     const currentBot = botId ? store.getBot(botId) : null;
     const globalConfig = store.getConfig();
-    const apiKey = currentBot?.geminiApiKey || globalConfig.geminiApiKey;
-
-    if (!apiKey) {
-      return res.status(400).json({ error: "Gemini API Key required for AI diagnostics." });
-    }
+    const apiKey = currentBot?.geminiApiKey || globalConfig.geminiApiKey || '';
 
     const logToDiagnose = errorLog || currentBot?.lastError || store.getRecentLogs(5).find(l => l.type === 'error') || { message: "Unknown error" };
 
     const diagnosis = await geminiService.aiDiagnoseError({
       apiKey,
       errorLog: logToDiagnose,
-      botContext: currentBot ? { id: currentBot.id, name: currentBot.settings?.name, status: currentBot.status } : null
+      botContext: currentBot ? { id: currentBot.id, name: currentBot.settings?.name, status: currentBot.status } : null,
+      provider: globalConfig.aiProvider || 'auto'
     });
 
     res.json({

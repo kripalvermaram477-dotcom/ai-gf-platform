@@ -283,43 +283,58 @@
         <div class="section-header">
           <div>
             <h2 class="section-title">AI Bot Copilot</h2>
-            <p class="section-desc">Natural language me instructions dein aur AI aapke bot ke behavior, personality ya prompt ko automatically change karega!</p>
+            <p class="section-desc">Natural language me instructions dein: Naya bot persona banayein ya existing bot ke behavior aur prompt ko bina kisi API key ke modify karein!</p>
           </div>
         </div>
 
         <div class="copilot-card">
-          <div class="copilot-bot-select">
-            <label for="copilot-target-bot">Target Bot Select Karein:</label>
-            <select id="copilot-target-bot" class="form-select"></select>
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label for="copilot-target-bot">Target Action / Bot Select Karein:</label>
+              <select id="copilot-target-bot" class="form-select"></select>
+            </div>
+            <div class="form-group flex-1">
+              <label for="copilot-provider-select">AI Copilot Engine:</label>
+              <select id="copilot-provider-select" class="form-select">
+                <option value="pollinations" selected>🌸 Pollinations.AI (100% Free & Unlimited - Zero Key)</option>
+                <option value="auto">🔄 Auto (Gemini + Pollinations Fallback)</option>
+                <option value="gemini">⚡ Google Gemini API</option>
+              </select>
+            </div>
           </div>
 
           <div class="copilot-presets-hint">
             <span class="hint-title">💡 Try asking:</span>
+            <button class="chip-btn" onclick="setCopilotPrompt('Ek nayi bubbly anime GF banao jiska naam Riya ho, wo Hinglish me shayari aur cute teasing kare')">"✨ Naya Bot Banao (Riya)"</button>
             <button class="chip-btn" onclick="setCopilotPrompt('Isko thoda aur clingy aur loving bana do, Hinglish me babu bolke baat kare aur thoda jaldi jealous ho')">"Thoda clingy & jealous bana do"</button>
             <button class="chip-btn" onclick="setCopilotPrompt('Playful aur witty banao jo cute teasing kare aur emojis use kare')">"Playful & teasing vibe"</button>
             <button class="chip-btn" onclick="setCopilotPrompt('Deep and emotional girlfriend prompt banao jo late night talks kare')">"Late night deep talks vibe"</button>
           </div>
 
           <div class="copilot-input-box">
-            <textarea id="copilot-instruction" class="form-textarea" rows="3" placeholder="Yahan natural language me instruction likhein... (e.g. 'Aisha ko bolo ki wo sirf Hinglish me baat kare, short cute replies de aur babu shona bole')"></textarea>
+            <textarea id="copilot-instruction" class="form-textarea" rows="3" placeholder="Yahan natural language me instruction likhein... (e.g. 'Ek cute anime girlfriend bot banao jiska naam Hinata ho jo babu shona bole' ya 'Aisha ko thoda aur clingy bana do')"></textarea>
             <div class="copilot-input-footer">
-              <span id="copilot-status-indicator" class="subtle-text">AI engine active (Gemini + Pollinations Free Fallback)</span>
+              <span id="copilot-status-indicator" class="subtle-text">🟢 Engine: Pollinations.AI (Direct Free, No API Key needed)</span>
               <button class="btn btn-gradient" id="btn-run-copilot">
                 <span class="btn-spinner" id="copilot-spinner" style="display: none;"></span>
-                <span>✨ Apply with AI</span>
+                <span>✨ Run AI Copilot</span>
               </button>
             </div>
           </div>
 
           <div id="copilot-result" class="copilot-result-box" style="display: none;">
             <div class="result-header">
-              <span class="result-badge">AI Changes Applied!</span>
+              <span class="result-badge" id="copilot-result-badge">AI Changes Applied!</span>
               <span class="timestamp" id="copilot-result-time">Just now</span>
             </div>
             <div class="result-explanation" id="copilot-explanation"></div>
             <div class="result-diff">
-              <h4>Updated Personality & System Prompt:</h4>
+              <h4 id="copilot-diff-title">Generated / Updated Personality:</h4>
               <pre id="copilot-updated-prompt"></pre>
+            </div>
+            <div id="copilot-action-row" style="margin-top: 14px; display: flex; gap: 10px;">
+              <button class="btn btn-primary" id="btn-copilot-launch-bot" style="display: none;">🚀 Is Persona Se Naya Bot Connect Karein</button>
+              <button class="btn btn-secondary" id="btn-copilot-open-sim" style="display: none;">💬 Test in Chat Simulator</button>
             </div>
           </div>
         </div>
@@ -381,6 +396,14 @@
                 <option value="low">Low (subtle)</option>
                 <option value="moderate">Moderate (natural)</option>
                 <option value="high">High (lots of cute emojis 🥰❤️✨)</option>
+              </select>
+            </div>
+            <div class="form-group flex-1">
+              <label for="edit-bot-provider">AI Engine for this Bot:</label>
+              <select id="edit-bot-provider" class="form-select">
+                <option value="pollinations">🌸 Pollinations.AI (Free, Zero Key)</option>
+                <option value="auto">🔄 Auto (Gemini + Pollinations)</option>
+                <option value="gemini">⚡ Google Gemini API</option>
               </select>
             </div>
           </div>
@@ -566,6 +589,15 @@
               <option value="possessive_clingy">🥰 Simran - Clingy, Protective & Loves Attention</option>
               <option value="tsundere">😤 Kavya - Tsundere (Secretly Loves You)</option>
               <option value="intellectual_deep">✨ Meera - Deep, Mature & Late Night Chats</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="modal-bot-provider">AI Engine for this Bot:</label>
+            <select id="modal-bot-provider" class="form-select">
+              <option value="pollinations" selected>🌸 Pollinations.AI (100% Free & Unlimited - Zero Key)</option>
+              <option value="auto">🔄 Auto (Gemini + Pollinations Fallback)</option>
+              <option value="gemini">⚡ Google Gemini API</option>
             </select>
           </div>
 
