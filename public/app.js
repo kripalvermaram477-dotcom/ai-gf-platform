@@ -1390,7 +1390,15 @@ function setupModal() {
 
       if (res.ok) {
         appState.pendingCustomSettings = null;
-        showToast("Bot successfully connected & configured!", "success");
+        const bot = data.bot || {};
+        if (data.started) {
+          showToast("Bot successfully connected & started!", "success");
+        } else {
+          showToast("Bot connected but not started. Check token.", "info");
+          if (bot.statusMessage) {
+            alert(`Bot created but not started:\n${bot.statusMessage}\n\nPlease verify your bot token from @BotFather.`);
+          }
+        }
         addBotModal.style.display = 'none';
         await loadBots();
       } else {
