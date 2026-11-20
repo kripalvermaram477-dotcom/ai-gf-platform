@@ -1242,3 +1242,76 @@ input:checked + .slider:before {
     gap: 2px;
   }
 }
+
+/* ===== Login role tabs (admin / user / register) ===== */
+.login-role-tabs {
+  display: flex;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 4px;
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+
+.login-role-btn {
+  flex: 1;
+  padding: 8px 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-sub);
+  font-size: 0.76rem;
+  font-weight: 700;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.login-role-btn.active {
+  background: var(--primary);
+  color: #fff;
+}
+
+/* ===== Telegram verification box (add bot modal) ===== */
+.verify-box {
+  border: 1px solid var(--border);
+  background: rgba(236, 72, 153, 0.06);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 16px;
+}
+
+.verify-title {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+  color: var(--primary);
+}
+
+.verify-text {
+  font-size: 0.8rem;
+  color: var(--text-sub);
+  margin: 0 0 10px;
+}
+
+.verify-row {
+  display: flex;
+  gap: 8px;
+}
+
+.verify-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.verify-status {
+  font-size: 0.78rem;
+  margin: 8px 0 0;
+  min-height: 18px;
+}
+
+.verify-status.ok {
+  color: #34d399;
+}
+
+.verify-status.err {
+  color: #f87171;
+}

@@ -77,6 +77,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
       const data = await res.json();
       if (data.authenticated) {
+        localStorage.setItem('authRole', data.role || 'admin');
         showMainApp();
         initApp();
       } else {
@@ -90,11 +91,43 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 async function initApp() {
-  initLogStream();
-  await loadPresets();
-  await loadConfig();
-  await loadBots();
-  loadUsage();
+  applyRoleUi();
+  if (currentRole() === 'admin') {
+    initLogStream();
+    await loadPresets();
+    await loadConfig();
+    await loadBots();
+    loadUsage();
+  } else {
+    await loadPresets();
+    await loadBots();
+  }
+}
+
+function currentRole() {
+  return localStorage.getItem('authRole') || 'admin';
+}
+
+function applyRoleUi() {
+  const role = currentRole();
+  document.body.dataset.role = role;
+
+  document.querySelectorAll('.tab-btn').forEach((btn) => {
+    const tab = btn.getAttribute('data-tab');
+    if (tab === 'settings' || tab === 'logs') {
+      btn.style.display = role === 'admin' ? '' : 'none';
+    }
+  });
+
+  const channelOption = document.querySelector('#broadcast-target option[value="channel"]');
+  if (channelOption && role !== 'admin') {
+    channelOption.remove();
+  }
+
+  const usageCard = document.querySelector('.usage-card');
+  if (usageCard) {
+    usageCard.style.display = role === 'admin' ? '' : 'none';
+  }
 }
 
 function setupAuth() {
@@ -103,8 +136,48 @@ function setupAuth() {
   const passInput = document.getElementById('login-password');
   const errBox = document.getElementById('login-error-alert');
   const btnLogout = document.getElementById('btn-admin-logout');
+  const roleBtns = document.querySelectorAll('.login-role-btn');
+  const titleEl = document.getElementById('login-title');
+  const subtitleEl = document.getElementById('login-subtitle');
+  const hintEl = document.getElementById('login-hint');
+  const btnText = document.getElementById('login-btn-text');
 
-  const doLogin = async () => {
+  const modes = {
+    admin: {
+      title: 'Admin Login',
+      subtitle: 'Platform owner access',
+      btn: '🔐 Login as Admin',
+      hint: 'Default admin: <code>admin</code> / <code>admin123</code>'
+    },
+    user: {
+      title: 'User Login',
+      subtitle: 'Manage your own bots',
+      btn: '👤 Login',
+      hint: 'Naya hain? <strong>Register</strong> tab se account banayein.'
+    },
+    register: {
+      title: 'Create Account',
+      subtitle: 'Register to run your own bot',
+      btn: '✨ Create Account',
+      hint: 'Password minimum 6 characters. Username: letters, numbers, _'
+    }
+  };
+
+  let mode = 'admin';
+
+  const setMode = (next) => {
+    mode = next;
+    roleBtns.forEach(b => b.classList.toggle('active', b.dataset.mode === next));
+    titleEl.textContent = modes[next].title;
+    subtitleEl.textContent = modes[next].subtitle;
+    btnText.textContent = modes[next].btn;
+    hintEl.innerHTML = modes[next].hint;
+    errBox.style.display = 'none';
+  };
+
+  roleBtns.forEach(btn => btn.addEventListener('click', () => setMode(btn.dataset.mode)));
+
+  const doSubmit = async () => {
     const username = userInput.value.trim();
     const password = passInput.value.trim();
     if (!username || !password) {
@@ -113,19 +186,27 @@ function setupAuth() {
       return;
     }
 
+    const endpoint = mode === 'admin'
+      ? '/api/auth/login'
+      : mode === 'user'
+        ? '/api/user/login'
+        : '/api/user/register';
+
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
       });
       const data = await res.json();
       if (res.ok && data.token) {
+        const role = data.role || (mode === 'admin' ? 'admin' : 'user');
         localStorage.setItem('adminToken', data.token);
+        localStorage.setItem('authRole', role);
         errBox.style.display = 'none';
         showMainApp();
         initApp();
-        showToast("Welcome back, Admin!", "success");
+        showToast(role === 'admin' ? "Welcome back, Admin!" : `Welcome, ${data.account?.username || username}!`, "success");
       } else {
         errBox.style.display = 'block';
         errBox.textContent = data.error || "Login failed";
@@ -136,9 +217,9 @@ function setupAuth() {
     }
   };
 
-  btnLogin.addEventListener('click', doLogin);
+  btnLogin.addEventListener('click', doSubmit);
   passInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') doLogin();
+    if (e.key === 'Enter') doSubmit();
   });
 
   btnLogout.addEventListener('click', async () => {
@@ -150,6 +231,7 @@ function setupAuth() {
       }).catch(() => {});
     }
     localStorage.removeItem('adminToken');
+    localStorage.removeItem('authRole');
     showLoginScreen();
     showToast("Logged out successfully.", "info");
   });
@@ -956,11 +1038,82 @@ function setupModal() {
   const btnSubmit = document.getElementById('btn-submit-add-bot');
   const spinner = document.getElementById('modal-spinner');
 
-  window.openAddBotModal = () => {
+  const verifySection = document.getElementById('modal-verify-section');
+  const verifyInput = document.getElementById('modal-telegram-id');
+  const verifyBtn = document.getElementById('btn-verify-telegram');
+  const verifyStatus = document.getElementById('modal-verify-status');
+  const groupLink = document.getElementById('modal-group-link');
+  let telegramVerifiedForUser = false;
+
+  async function refreshVerificationState() {
+    if (currentRole() !== 'user') {
+      verifySection.style.display = 'none';
+      telegramVerifiedForUser = true;
+      return true;
+    }
+    try {
+      const res = await authFetch('/api/user/me');
+      const me = await res.json();
+      if (me.groupLink && groupLink) {
+        groupLink.href = me.groupLink;
+        groupLink.textContent = me.requiredGroup || '@gfopiu';
+      }
+      if (me.telegramVerified) {
+        telegramVerifiedForUser = true;
+        verifySection.style.display = 'none';
+        return true;
+      }
+    } catch (_) {}
+    telegramVerifiedForUser = false;
+    verifySection.style.display = 'block';
+    return false;
+  }
+
+  if (verifyBtn) {
+    verifyBtn.addEventListener('click', async () => {
+      const telegramId = verifyInput.value.trim();
+      if (!telegramId) {
+        verifyStatus.className = 'verify-status err';
+        verifyStatus.textContent = 'Telegram user ID daalein.';
+        return;
+      }
+      verifyBtn.disabled = true;
+      verifyBtn.textContent = 'Checking…';
+      try {
+        const res = await authFetch('/api/user/verify-telegram', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ telegramId })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          telegramVerifiedForUser = true;
+          verifyStatus.className = 'verify-status ok';
+          verifyStatus.textContent = '✅ Verified! Ab bot connect kar sakte hain.';
+          setTimeout(() => { verifySection.style.display = 'none'; }, 1000);
+        } else {
+          verifyStatus.className = 'verify-status err';
+          verifyStatus.textContent = data.error || 'Verification failed';
+          if (data.groupLink && groupLink) groupLink.href = data.groupLink;
+        }
+      } catch (e) {
+        verifyStatus.className = 'verify-status err';
+        verifyStatus.textContent = e.message;
+      } finally {
+        verifyBtn.disabled = false;
+        verifyBtn.textContent = 'Verify';
+      }
+    });
+  }
+
+  window.openAddBotModal = async () => {
     addBotModal.style.display = 'flex';
     document.getElementById('modal-bot-token').value = '';
     document.getElementById('modal-bot-name').value = '';
+    if (verifyInput) verifyInput.value = '';
+    if (verifyStatus) verifyStatus.textContent = '';
     document.getElementById('modal-bot-token').focus();
+    await refreshVerificationState();
   };
 
   btnOpen.addEventListener('click', window.openAddBotModal);
@@ -975,6 +1128,12 @@ function setupModal() {
 
     if (!token) {
       alert("Please enter a Telegram Bot Token from @BotFather");
+      return;
+    }
+
+    if (currentRole() === 'user' && !telegramVerifiedForUser) {
+      alert("Pehle Telegram verify karein — group join karke apna user ID daalein.");
+      verifySection.style.display = 'block';
       return;
     }
 
@@ -1001,6 +1160,10 @@ function setupModal() {
         addBotModal.style.display = 'none';
         await loadBots();
       } else {
+        if (data.requiresTelegram) {
+          verifySection.style.display = 'block';
+          if (data.groupLink && groupLink) groupLink.href = data.groupLink;
+        }
         alert(`Error: ${data.error}`);
       }
     } catch (err) {

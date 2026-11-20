@@ -61,26 +61,50 @@ function activePollinationsKey() {
 }
 
 // ================= AUTH MIDDLEWARE =================
-app.use((req, res, next) => {
-  // Public routes that don't need authentication
-  if (
-    !req.path.startsWith('/api') ||
-    req.path === '/api/auth/login' ||
-    req.path === '/api/auth/verify' ||
-    req.path === '/api/status' ||
-    req.path === '/api/presets'
-  ) {
-    return next();
-  }
+const PUBLIC_API_PATHS = new Set([
+  '/api/auth/login',
+  '/api/auth/verify',
+  '/api/status',
+  '/api/presets',
+  '/api/user/register',
+  '/api/user/login'
+]);
 
+function readAuth(req) {
   const authHeader = req.headers.authorization || req.headers['x-admin-token'];
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+  return store.getTokenPayload(token);
+}
 
-  if (store.validateToken(token)) {
+function requireAdmin(req, res, next) {
+  if (req.auth && req.auth.role === 'admin') return next();
+  return res.status(403).json({ error: "Admin access required" });
+}
+
+function botAccess(req, res, next) {
+  const bot = store.getBot(req.params.id);
+  if (!bot) return res.status(404).json({ error: "Bot not found" });
+  const isAdmin = req.auth?.role === 'admin';
+  const isOwner = req.auth?.role === 'user' && (bot.owner || 'admin') === req.auth.username;
+  if (!isAdmin && !isOwner) {
+    return res.status(403).json({ error: "You do not have access to this bot" });
+  }
+  req.bot = bot;
+  next();
+}
+
+app.use((req, res, next) => {
+  // Public routes that don't need authentication
+  if (!req.path.startsWith('/api') || PUBLIC_API_PATHS.has(req.path)) {
     return next();
   }
 
-  return res.status(401).json({ error: "Unauthorized. Please login with Admin credentials." });
+  req.auth = readAuth(req);
+  if (req.auth) {
+    return next();
+  }
+
+  return res.status(401).json({ error: "Unauthorized. Please login again." });
 });
 
 // ================= AUTH ROUTES =================
@@ -98,8 +122,13 @@ app.post('/api/auth/login', (req, res) => {
 });
 
 app.get('/api/auth/verify', (req, res) => {
-  const token = req.headers['x-admin-token'] || req.headers.authorization?.slice(7);
-  res.json({ authenticated: store.validateToken(token) });
+  const payload = readAuth(req);
+  if (!payload) return res.json({ authenticated: false });
+  res.json({
+    authenticated: true,
+    role: payload.role,
+    username: payload.username
+  });
 });
 
 app.post('/api/auth/logout', (req, res) => {
@@ -108,7 +137,7 @@ app.post('/api/auth/logout', (req, res) => {
   res.json({ success: true });
 });
 
-app.post('/api/auth/change-credentials', (req, res) => {
+app.post('/api/auth/change-credentials', requireAdmin, (req, res) => {
   const { newUsername, newPassword } = req.body;
   if (!newPassword || newPassword.length < 4) {
     return res.status(400).json({ error: "Password must be at least 4 characters long" });
@@ -116,6 +145,110 @@ app.post('/api/auth/change-credentials', (req, res) => {
   store.changeAdminCredentials(newUsername, newPassword);
   errorHealer.log('info', "Admin credentials updated.");
   res.json({ success: true, message: "Credentials updated successfully" });
+});
+
+// ================= USER ACCOUNT ROUTES =================
+app.post('/api/user/register', (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const account = store.registerUser({ username, password });
+    const token = store.issueAdminToken(account.username, 30, 'user');
+    errorHealer.log('info', `New user registered: ${account.username}`);
+    res.json({ success: true, token, role: 'user', account });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/user/login', (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: "Username and password required" });
+  }
+  const result = store.authenticateUser(username, password);
+  if (!result.success) {
+    return res.status(401).json({ error: result.error });
+  }
+  const token = store.issueAdminToken(result.account.username, 30, 'user');
+  res.json({ success: true, token, role: 'user', account: result.account });
+});
+
+app.get('/api/user/me', (req, res) => {
+  if (req.auth?.role !== 'user') {
+    return res.status(403).json({ error: "User account required" });
+  }
+  const account = store.publicAccount(req.auth.username);
+  if (!account) return res.status(404).json({ error: "Account not found" });
+  res.json({
+    ...account,
+    requiredGroup: store.getConfig().requiredGroup || '@gfopiu',
+    groupLink: `https://t.me/${(store.getConfig().requiredGroup || '@gfopiu').replace(/^@/, '')}`
+  });
+});
+
+// ================= TELEGRAM GROUP VERIFICATION =================
+async function checkGroupMembership(userId) {
+  const group = store.getConfig().requiredGroup || '@gfopiu';
+  const bots = store.getBots();
+  let lastError = null;
+
+  for (const b of bots) {
+    if (!b.token) continue;
+    try {
+      const url = `https://api.telegram.org/bot${b.token}/getChatMember?chat_id=${encodeURIComponent(group)}&user_id=${encodeURIComponent(userId)}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      if (data.ok) {
+        const status = data.result?.status;
+        return {
+          ok: true,
+          member: ['creator', 'administrator', 'member'].includes(status),
+          status,
+          group,
+          verifiedBy: b.info?.username || b.id
+        };
+      }
+      lastError = data.description || `HTTP ${response.status}`;
+    } catch (err) {
+      lastError = err.message;
+    }
+  }
+  return { ok: false, error: lastError || 'No bot available to verify membership', group };
+}
+
+app.post('/api/user/verify-telegram', async (req, res) => {
+  if (req.auth?.role !== 'user') {
+    return res.status(403).json({ error: "User account required" });
+  }
+
+  const telegramId = String(req.body.telegramId || '').trim();
+  if (!/^\d{5,20}$/.test(telegramId)) {
+    return res.status(400).json({ error: "Valid numeric Telegram user ID required" });
+  }
+
+  const result = await checkGroupMembership(telegramId);
+  const group = result.group || '@gfopiu';
+  const groupLink = `https://t.me/${group.replace(/^@/, '')}`;
+
+  if (!result.ok) {
+    return res.status(502).json({ error: `Verification unavailable: ${result.error}` });
+  }
+
+  if (!result.member) {
+    return res.status(403).json({
+      error: `Aapne abhi ${group} join nahi kiya hai. Pehle join karein, phir Verify dabayein.`,
+      requiresTelegram: true,
+      groupLink
+    });
+  }
+
+  const account = store.setAccountTelegram(req.auth.username, {
+    userId: telegramId,
+    displayName: req.body.name || null
+  });
+  errorHealer.log('info', `User ${req.auth.username} verified via Telegram (${telegramId})`);
+
+  res.json({ success: true, account, groupLink });
 });
 
 // ================= API ROUTES =================
@@ -140,7 +273,7 @@ app.get('/api/status', (req, res) => {
 });
 
 // 2. Global Configuration
-app.get('/api/config', (req, res) => {
+app.get('/api/config', requireAdmin, (req, res) => {
   const config = store.getConfig();
   res.json({
     geminiApiKey: config.geminiApiKey ? `${config.geminiApiKey.substring(0, 6)}...${config.geminiApiKey.slice(-4)}` : '',
@@ -154,7 +287,7 @@ app.get('/api/config', (req, res) => {
   });
 });
 
-app.post('/api/config', (req, res) => {
+app.post('/api/config', requireAdmin, (req, res) => {
   const { geminiApiKey, pollinationsApiKey, geminiModel, aiProvider, autoHealEnabled } = req.body;
   if (geminiApiKey !== undefined && geminiApiKey !== '') {
     store.setGeminiApiKey(geminiApiKey);
@@ -180,7 +313,7 @@ app.post('/api/config', (req, res) => {
 });
 
 // 2b. Force cloud backup (bots + broadcast audience) and report the result
-app.post('/api/cloud/sync', async (req, res) => {
+app.post('/api/cloud/sync', requireAdmin, async (req, res) => {
   try {
     const bots = await store.syncBotsToGitHub();
     const users = await store.syncUsersToGitHub(true);
@@ -199,9 +332,13 @@ app.get('/api/presets', (req, res) => {
   res.json(PERSONALITY_PRESETS);
 });
 
-// 4. List all Bots
+// 4. List all Bots (users only see their own bots)
 app.get('/api/bots', (req, res) => {
-  res.json(store.getBots());
+  const bots = store.getBots();
+  if (req.auth?.role === 'admin') {
+    return res.json(bots);
+  }
+  res.json(bots.filter(b => (b.owner || 'admin') === req.auth?.username));
 });
 
 // 5. Add a new Bot (Token only or token + settings)
@@ -212,8 +349,28 @@ app.post('/api/bots', async (req, res) => {
       return res.status(400).json({ error: "Invalid Telegram Bot Token format. Tokens look like '123456789:ABCdef-GHIjkl...'" });
     }
 
-    const newBot = store.addBot({ token, name, preset, customSettings });
-    errorHealer.log('info', `Added new bot [${newBot.settings.name}]`);
+    const role = req.auth?.role || 'user';
+    if (role === 'user') {
+      const account = store.publicAccount(req.auth.username);
+      if (!account) return res.status(401).json({ error: "Account not found" });
+      if (!account.telegramVerified) {
+        const group = store.getConfig().requiredGroup || '@gfopiu';
+        return res.status(403).json({
+          error: `Bot connect karne se pehle Telegram group join karke verify karein (${group}).`,
+          requiresTelegram: true,
+          groupLink: `https://t.me/${group.replace(/^@/, '')}`
+        });
+      }
+    }
+
+    const newBot = store.addBot({
+      token,
+      name,
+      preset,
+      customSettings,
+      owner: role === 'admin' ? 'admin' : req.auth.username
+    });
+    errorHealer.log('info', `Added new bot [${newBot.settings.name}] for ${newBot.owner}`);
 
     let startResult = null;
     if (autoStart) {
@@ -235,14 +392,14 @@ app.post('/api/bots', async (req, res) => {
 });
 
 // 6. Get single Bot
-app.get('/api/bots/:id', (req, res) => {
+app.get('/api/bots/:id', botAccess, (req, res) => {
   const bot = store.getBot(req.params.id);
   if (!bot) return res.status(404).json({ error: "Bot not found" });
   res.json(bot);
 });
 
 // 7. Update Bot Settings
-app.put('/api/bots/:id', async (req, res) => {
+app.put('/api/bots/:id', botAccess, async (req, res) => {
   try {
     const bot = store.updateBot(req.params.id, req.body);
     errorHealer.log('info', `Settings updated for bot [${bot.settings.name}]`);
@@ -255,7 +412,7 @@ app.put('/api/bots/:id', async (req, res) => {
 });
 
 // 8. Delete Bot
-app.delete('/api/bots/:id', async (req, res) => {
+app.delete('/api/bots/:id', botAccess, async (req, res) => {
   try {
     const removed = await botManager.deleteBot(req.params.id);
     errorHealer.log('info', `Deleted bot [${removed.settings?.name || req.params.id}]`);
@@ -266,7 +423,7 @@ app.delete('/api/bots/:id', async (req, res) => {
 });
 
 // 9. Start Bot
-app.post('/api/bots/:id/start', async (req, res) => {
+app.post('/api/bots/:id/start', botAccess, async (req, res) => {
   try {
     const result = await botManager.startBot(req.params.id, { dropPendingUpdates: true });
     res.json(result);
@@ -276,7 +433,7 @@ app.post('/api/bots/:id/start', async (req, res) => {
 });
 
 // 10. Stop Bot
-app.post('/api/bots/:id/stop', async (req, res) => {
+app.post('/api/bots/:id/stop', botAccess, async (req, res) => {
   try {
     const result = await botManager.stopBot(req.params.id, req.body.reason || "Stopped via Dashboard");
     res.json(result);
@@ -286,7 +443,7 @@ app.post('/api/bots/:id/stop', async (req, res) => {
 });
 
 // 11. Restart Bot
-app.post('/api/bots/:id/restart', async (req, res) => {
+app.post('/api/bots/:id/restart', botAccess, async (req, res) => {
   try {
     const result = await botManager.restartBot(req.params.id, { dropPendingUpdates: true });
     res.json(result);
@@ -305,6 +462,9 @@ app.post('/api/ai/copilot', async (req, res) => {
 
     const isNew = !botId || botId === '__new__';
     const currentBot = isNew ? null : store.getBot(botId);
+    if (!isNew && req.auth?.role === 'user' && (currentBot?.owner || 'admin') !== req.auth.username) {
+      return res.status(403).json({ error: "You do not have access to this bot" });
+    }
     const globalConfig = store.getConfig();
     const apiKey = currentBot?.geminiApiKey || globalConfig.geminiApiKey || '';
 
@@ -401,7 +561,7 @@ app.post('/api/ai/auto-fix', async (req, res) => {
 });
 
 // 15. In-Dashboard Live Bot Simulator (Test chat with your bot without telegram)
-app.post('/api/bots/:id/simulate', async (req, res) => {
+app.post('/api/bots/:id/simulate', botAccess, async (req, res) => {
   try {
     const { id: botId } = req.params;
     const { message } = req.body;
@@ -432,33 +592,33 @@ app.post('/api/bots/:id/simulate', async (req, res) => {
   }
 });
 
-app.get('/api/bots/:id/simulate', (req, res) => {
+app.get('/api/bots/:id/simulate', botAccess, (req, res) => {
   res.json({ history: store.getSimulatorHistory(req.params.id) });
 });
 
-app.delete('/api/bots/:id/simulate', (req, res) => {
+app.delete('/api/bots/:id/simulate', botAccess, (req, res) => {
   store.clearSimulatorHistory(req.params.id);
   res.json({ success: true, message: "Simulator history cleared" });
 });
 
 // 16. User CRM & Chat History
-app.get('/api/bots/:id/users', (req, res) => {
+app.get('/api/bots/:id/users', botAccess, (req, res) => {
   const users = store.getBotUsers(req.params.id);
   res.json(users);
 });
 
-app.get('/api/bots/:id/users/:userId/history', (req, res) => {
+app.get('/api/bots/:id/users/:userId/history', botAccess, (req, res) => {
   const history = store.getConversation(req.params.id, req.params.userId);
   res.json(history);
 });
 
-app.delete('/api/bots/:id/users/:userId/history', (req, res) => {
+app.delete('/api/bots/:id/users/:userId/history', botAccess, (req, res) => {
   store.clearConversation(req.params.id, req.params.userId);
   res.json({ success: true, message: "User conversation history cleared" });
 });
 
 // 17. Broadcast Message to All Bot Users or to a Channel/Group
-app.post('/api/bots/:id/broadcast', async (req, res) => {
+app.post('/api/bots/:id/broadcast', botAccess, async (req, res) => {
   try {
     const { message, target = 'users', chatId } = req.body;
     if (!message || !message.trim()) {
@@ -466,6 +626,9 @@ app.post('/api/bots/:id/broadcast', async (req, res) => {
     }
 
     if (target === 'channel') {
+      if (req.auth?.role !== 'admin') {
+        return res.status(403).json({ error: "Channel/group broadcast is admin-only" });
+      }
       const destination = String(chatId || '').trim();
       if (!destination) {
         return res.status(400).json({ error: "Channel username or chat ID required (e.g. @yourchannel)" });
@@ -482,7 +645,7 @@ app.post('/api/bots/:id/broadcast', async (req, res) => {
 });
 
 // 17b. Broadcast audience info (how many stored users are reachable)
-app.get('/api/bots/:id/audience', (req, res) => {
+app.get('/api/bots/:id/audience', botAccess, (req, res) => {
   const audience = store.getAudience(req.params.id);
   res.json({
     ...audience,
@@ -519,7 +682,7 @@ app.post('/api/ai/craft-persona', async (req, res) => {
 });
 
 // 18b. AI latency probe (diagnostics)
-app.get('/api/ai/latency', async (req, res) => {
+app.get('/api/ai/latency', requireAdmin, async (req, res) => {
   try {
     const t0 = Date.now();
     const reply = await geminiService.pollinationsChat({
@@ -540,7 +703,7 @@ app.get('/api/ai/latency', async (req, res) => {
 // 18c. AI usage & balance dashboard (Pollinations key)
 let aiUsageCache = { at: 0, data: null };
 
-app.get('/api/ai/usage', async (req, res) => {
+app.get('/api/ai/usage', requireAdmin, async (req, res) => {
   const key = activePollinationsKey();
   if (!key) {
     return res.json({ configured: false });
@@ -621,14 +784,14 @@ app.get('/api/ai/usage', async (req, res) => {
 });
 
 // 19. Backup & Restore
-app.get('/api/backup/export', (req, res) => {
+app.get('/api/backup/export', requireAdmin, (req, res) => {
   const backup = store.exportBackup();
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Content-Disposition', `attachment; filename="telegram-ai-gf-backup-${Date.now()}.json"`);
   res.send(JSON.stringify(backup, null, 2));
 });
 
-app.post('/api/backup/import', (req, res) => {
+app.post('/api/backup/import', requireAdmin, (req, res) => {
   try {
     store.importBackup(req.body);
     errorHealer.log('info', 'System backup successfully imported and restored.');
@@ -639,11 +802,11 @@ app.post('/api/backup/import', (req, res) => {
 });
 
 // 15. Logs and SSE Log Streaming
-app.get('/api/logs', (req, res) => {
+app.get('/api/logs', requireAdmin, (req, res) => {
   res.json(store.getRecentLogs(100));
 });
 
-app.get('/api/logs/stream', (req, res) => {
+app.get('/api/logs/stream', requireAdmin, (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');

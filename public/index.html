@@ -18,26 +18,32 @@
         <div class="logo-badge">
           <span class="heart-pulse">💖</span>
         </div>
-        <h2>Admin Login</h2>
-        <p>AI GF Platform & Bot Manager Security</p>
+        <h2 id="login-title">Login</h2>
+        <p id="login-subtitle">AI GF Platform & Bot Manager</p>
+      </div>
+
+      <div class="login-role-tabs">
+        <button type="button" class="login-role-btn active" data-mode="admin">👑 Admin</button>
+        <button type="button" class="login-role-btn" data-mode="user">👤 User Login</button>
+        <button type="button" class="login-role-btn" data-mode="register">✨ Register</button>
       </div>
 
       <div id="login-error-alert" class="alert-box" style="display: none;"></div>
 
       <div class="form-group">
-        <label for="login-username">Admin Username:</label>
-        <input type="text" id="login-username" class="form-input" placeholder="admin" value="admin">
+        <label for="login-username" id="login-username-label">Username:</label>
+        <input type="text" id="login-username" class="form-input" placeholder="username" autocomplete="username">
       </div>
 
       <div class="form-group">
-        <label for="login-password">Admin Password:</label>
-        <input type="password" id="login-password" class="form-input" placeholder="Password (default: admin123)">
+        <label for="login-password" id="login-password-label">Password:</label>
+        <input type="password" id="login-password" class="form-input" placeholder="Password" autocomplete="current-password">
       </div>
 
       <button class="btn btn-gradient w-100" id="btn-submit-login">
-        <span>🔐 Login to Dashboard</span>
+        <span id="login-btn-text">🔐 Login</span>
       </button>
-      <p class="field-hint text-center" style="margin-top: 12px;">Default credentials: <code>admin</code> / <code>admin123</code></p>
+      <p class="field-hint text-center" id="login-hint" style="margin-top: 12px;">Default admin: <code>admin</code> / <code>admin123</code></p>
     </div>
   </div>
 
@@ -652,6 +658,19 @@
           <button class="btn-icon" id="btn-close-modal">✕</button>
         </div>
         <div class="modal-body">
+          <div id="modal-verify-section" class="verify-box" style="display: none;">
+            <h4 class="verify-title">Step 1 — Telegram verify</h4>
+            <p class="verify-text">Bot connect karne se pehle group join karna zaroori hai:
+              <a id="modal-group-link" href="https://t.me/gfopiu" target="_blank" rel="noopener">@gfopiu</a>
+            </p>
+            <div class="verify-row">
+              <input type="text" id="modal-telegram-id" class="form-input" placeholder="Telegram user ID (e.g. 123456789)" inputmode="numeric">
+              <button type="button" class="btn btn-secondary" id="btn-verify-telegram">Verify</button>
+            </div>
+            <p class="field-hint">Apna ID lene ke liye <a href="https://t.me/userinfobot" target="_blank" rel="noopener">@userinfobot</a> ko <code>/start</code> bhejein.</p>
+            <p class="verify-status" id="modal-verify-status"></p>
+          </div>
+
           <div class="form-group">
             <label for="modal-bot-token">Telegram Bot Token: <span class="required">*</span></label>
             <input type="text" id="modal-bot-token" class="form-input font-mono" placeholder="123456789:ABCdef-GHIjklMNOpqrsTUVwxyZ">
