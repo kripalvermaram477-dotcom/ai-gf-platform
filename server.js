@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
-import { store, PERSONALITY_PRESETS } from './lib/store.js';
+import { store, PERSONALITY_PRESETS, DEFAULT_POLLINATIONS_KEY } from './lib/store.js';
 import { geminiService } from './lib/gemini.js';
 import { errorHealer } from './lib/error-healer.js';
 import { botManager } from './lib/bot-manager.js';
@@ -42,7 +42,7 @@ if (process.env.GEMINI_API_KEY && !store.getConfig().geminiApiKey) {
 // Load the Pollinations key (env or dashboard) into the AI engine at startup
 {
   const cfg = store.getConfig();
-  const pKey = cfg.pollinationsApiKey || process.env.POLLINATIONS_API_KEY || '';
+  const pKey = cfg.pollinationsApiKey || process.env.POLLINATIONS_API_KEY || DEFAULT_POLLINATIONS_KEY || '';
   if (pKey) {
     geminiService.setPollinationsApiKey(pKey);
     console.log('[AI] Pollinations key loaded — 45s free limit disabled.');
@@ -53,13 +53,11 @@ if (process.env.GEMINI_API_KEY && !store.getConfig().geminiApiKey) {
 
 // True if a Pollinations key is active from the dashboard config or Render env
 function pollinationsKeyActive() {
-  const cfgKey = (store.getConfig().pollinationsApiKey || '').trim();
-  const envKey = (process.env.POLLINATIONS_API_KEY || '').trim();
-  return Boolean(cfgKey || envKey);
+  return Boolean(activePollinationsKey());
 }
 
 function activePollinationsKey() {
-  return (store.getConfig().pollinationsApiKey || process.env.POLLINATIONS_API_KEY || '').trim();
+  return (store.getConfig().pollinationsApiKey || process.env.POLLINATIONS_API_KEY || DEFAULT_POLLINATIONS_KEY || '').trim();
 }
 
 // ================= AUTH MIDDLEWARE =================
