@@ -179,6 +179,21 @@ app.post('/api/config', (req, res) => {
   res.json({ success: true, message: 'Settings saved successfully' });
 });
 
+// 2b. Force cloud backup (bots + broadcast audience) and report the result
+app.post('/api/cloud/sync', async (req, res) => {
+  try {
+    const bots = await store.syncBotsToGitHub();
+    const users = await store.syncUsersToGitHub(true);
+    res.json({
+      configured: store.isCloudStorageConfigured(),
+      bots,
+      users
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 3. Personality Presets
 app.get('/api/presets', (req, res) => {
   res.json(PERSONALITY_PRESETS);
