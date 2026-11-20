@@ -149,7 +149,8 @@ app.get('/api/config', (req, res) => {
     hasPollinationsKey: pollinationsKeyActive(),
     geminiModel: config.geminiModel || 'gemini-3.5-flash-lite',
     aiProvider: config.aiProvider || 'auto',
-    autoHealEnabled: config.autoHealEnabled
+    autoHealEnabled: config.autoHealEnabled,
+    github: store.getCloudStorageDiagnostics()
   });
 });
 
