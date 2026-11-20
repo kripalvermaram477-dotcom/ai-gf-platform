@@ -51,6 +51,17 @@ if (process.env.GEMINI_API_KEY && !store.getConfig().geminiApiKey) {
   }
 }
 
+// True if a Pollinations key is active from the dashboard config or Render env
+function pollinationsKeyActive() {
+  const cfgKey = (store.getConfig().pollinationsApiKey || '').trim();
+  const envKey = (process.env.POLLINATIONS_API_KEY || '').trim();
+  return Boolean(cfgKey || envKey);
+}
+
+function activePollinationsKey() {
+  return (store.getConfig().pollinationsApiKey || process.env.POLLINATIONS_API_KEY || '').trim();
+}
+
 // ================= AUTH MIDDLEWARE =================
 app.use((req, res, next) => {
   // Public routes that don't need authentication
@@ -124,7 +135,7 @@ app.get('/api/status', (req, res) => {
     totalBots: bots.length,
     autoHealEnabled: config.autoHealEnabled,
     geminiConfigured: Boolean(config.geminiApiKey),
-    pollinationsConfigured: Boolean(config.pollinationsApiKey),
+    pollinationsConfigured: pollinationsKeyActive(),
     memoryUsage: process.memoryUsage()
   });
 });
@@ -135,8 +146,8 @@ app.get('/api/config', (req, res) => {
   res.json({
     geminiApiKey: config.geminiApiKey ? `${config.geminiApiKey.substring(0, 6)}...${config.geminiApiKey.slice(-4)}` : '',
     hasGeminiKey: Boolean(config.geminiApiKey),
-    pollinationsApiKey: config.pollinationsApiKey ? `${config.pollinationsApiKey.substring(0, 5)}...${config.pollinationsApiKey.slice(-4)}` : '',
-    hasPollinationsKey: Boolean(config.pollinationsApiKey),
+    pollinationsApiKey: activePollinationsKey() ? `${activePollinationsKey().substring(0, 5)}...${activePollinationsKey().slice(-4)}` : '',
+    hasPollinationsKey: pollinationsKeyActive(),
     geminiModel: config.geminiModel || 'gemini-3.5-flash-lite',
     aiProvider: config.aiProvider || 'auto',
     autoHealEnabled: config.autoHealEnabled
