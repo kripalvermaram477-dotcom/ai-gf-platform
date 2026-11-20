@@ -1502,18 +1502,20 @@ function setupCopilot() {
   const btnOpenSim = document.getElementById('btn-copilot-open-sim');
   const badgeEl = document.getElementById('copilot-result-badge');
 
-  // Pollinations in Copilot: only for users; admin uses Gemini/Auto
+  // Pollinations in Copilot: removed for users; admin keeps all options
   if (providerSelect) {
-    if (currentRole() === 'admin') {
+    if (currentRole() !== 'admin') {
       const pollOpt = providerSelect.querySelector('option[value="pollinations"]');
       if (pollOpt) pollOpt.remove();
       if (providerSelect.value === 'pollinations') providerSelect.value = 'auto';
-    } else {
-      Array.from(providerSelect.options).forEach((opt) => {
-        if (opt.value !== 'pollinations') opt.remove();
-      });
-      providerSelect.value = 'pollinations';
     }
+  }
+
+  if (indicator && providerSelect) {
+    const p = providerSelect.value;
+    if (p === 'pollinations') indicator.textContent = pollinationsEngineLabel();
+    else if (p === 'gemini') indicator.textContent = '⚡ Engine: Google Gemini API';
+    else indicator.textContent = '🔄 Engine: Auto (Gemini Primary + Pollinations Fallback)';
   }
 
   if (providerSelect && indicator) {
