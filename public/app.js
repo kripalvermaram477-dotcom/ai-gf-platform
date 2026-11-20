@@ -1121,6 +1121,7 @@ function setupCrm() {
 // 8. Backup & Restore
 function setupBackupRestore() {
   const fileInput = document.getElementById('backup-file-input');
+  if (!fileInput) return;
   fileInput.addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -1748,6 +1749,7 @@ function appendLogLine(entry) {
 function setupAutoHealToggle() {
   const toggle = document.getElementById('toggle-auto-heal');
   const label = document.getElementById('auto-heal-label');
+  if (!toggle || !label) return;
 
   toggle.addEventListener('change', async () => {
     const isEnabled = toggle.checked;
@@ -1788,9 +1790,11 @@ function setupSettings() {
     });
   }
 
-  btnToggleVis.addEventListener('click', () => {
-    keyInput.type = keyInput.type === 'password' ? 'text' : 'password';
-  });
+  if (btnToggleVis && keyInput) {
+    btnToggleVis.addEventListener('click', () => {
+      keyInput.type = keyInput.type === 'password' ? 'text' : 'password';
+    });
+  }
 
   if (btnTogglePollVis && pollInput) {
     btnTogglePollVis.addEventListener('click', () => {

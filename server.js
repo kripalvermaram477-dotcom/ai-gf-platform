@@ -31,7 +31,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Set initial Gemini key if in env
@@ -109,8 +109,28 @@ app.use((req, res, next) => {
   return res.status(401).json({ error: "Unauthorized. Please login again." });
 });
 
+// ================= RATE LIMITER (basic, in-memory) =================
+const _rateBuckets = new Map();
+function rateLimit(windowMs, max) {
+  return (req, res, next) => {
+    const key = `${req.ip}:${req.path}`;
+    const now = Date.now();
+    const bucket = _rateBuckets.get(key) || { count: 0, resetAt: now + windowMs };
+    if (now > bucket.resetAt) {
+      bucket.count = 0;
+      bucket.resetAt = now + windowMs;
+    }
+    bucket.count += 1;
+    _rateBuckets.set(key, bucket);
+    if (bucket.count > max) {
+      return res.status(429).json({ error: "Too many requests. Please try again later." });
+    }
+    next();
+  };
+}
+
 // ================= AUTH ROUTES =================
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', rateLimit(60000, 10), (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: "Username and password required" });
@@ -150,7 +170,7 @@ app.post('/api/auth/change-credentials', requireAdmin, (req, res) => {
 });
 
 // ================= USER ACCOUNT ROUTES =================
-app.post('/api/user/register', async (req, res) => {
+app.post('/api/user/register', rateLimit(60000, 5), async (req, res) => {
   try {
     const { username, password, ref } = req.body;
     const account = await store.registerUser({ username, password, ref });
@@ -162,7 +182,7 @@ app.post('/api/user/register', async (req, res) => {
   }
 });
 
-app.post('/api/user/login', (req, res) => {
+app.post('/api/user/login', rateLimit(60000, 10), (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: "Username and password required" });
