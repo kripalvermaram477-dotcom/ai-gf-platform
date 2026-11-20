@@ -67,7 +67,9 @@ const PUBLIC_API_PATHS = new Set([
   '/api/status',
   '/api/presets',
   '/api/user/register',
-  '/api/user/login'
+  '/api/user/login',
+  '/api/site/verify-telegram',
+  '/api/site/check'
 ]);
 
 function readAuth(req) {
@@ -271,6 +273,39 @@ app.post('/api/user/verify-telegram', async (req, res) => {
   errorHealer.log('info', `User ${req.auth.username} verified via Telegram (${telegramId})`);
 
   res.json({ success: true, account, groupLink });
+});
+
+// ================= SITE ACCESS GATE (Telegram group join required) =================
+app.post('/api/site/verify-telegram', async (req, res) => {
+  const telegramId = String(req.body?.telegramId || '').trim();
+  if (!/^\d{5,20}$/.test(telegramId)) {
+    return res.status(400).json({ error: "Valid numeric Telegram user ID required" });
+  }
+
+  const result = await checkGroupMembership(telegramId);
+  const group = result.group || '@gfopiu';
+  const groupLink = `https://t.me/${group.replace(/^@/, '')}`;
+
+  if (!result.ok) {
+    return res.status(502).json({ error: `Verification unavailable: ${result.error}`, groupLink });
+  }
+  if (!result.member) {
+    return res.status(403).json({
+      error: `Pehle ${group} join karein, phir verify karein.`,
+      groupLink,
+      requiresJoin: true
+    });
+  }
+
+  const token = store.issueAdminToken(`visitor_${telegramId}`, 30, 'visitor');
+  res.json({ success: true, token, groupLink });
+});
+
+app.get('/api/site/check', (req, res) => {
+  const authHeader = req.headers.authorization || req.headers['x-admin-token'];
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+  const payload = store.getTokenPayload(token);
+  res.json({ verified: Boolean(payload && (payload.role === 'visitor' || payload.role === 'user' || payload.role === 'admin')) });
 });
 
 // ================= API ROUTES =================

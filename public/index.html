@@ -11,6 +11,29 @@
 </head>
 <body>
 
+  <!-- SITE ACCESS GATE: Telegram group join required -->
+  <div id="site-gate-overlay" class="login-overlay" style="display: none;">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="logo-badge"><span class="heart-pulse">💖</span></div>
+        <h2>Join Our Community First</h2>
+        <p>Site use karne se pehle hamare Telegram group join karein</p>
+      </div>
+      <div id="site-gate-error" class="alert-box" style="display: none;"></div>
+      <p class="field-hint" style="text-align:center; margin-bottom:12px;">
+        Group join karein: <a id="site-gate-group-link" href="https://t.me/gfopiu" target="_blank" rel="noopener">@gfopiu</a>
+      </p>
+      <div class="form-group">
+        <label for="site-gate-telegram-id">Apna Telegram User ID:</label>
+        <input type="text" id="site-gate-telegram-id" class="form-input" placeholder="e.g. 123456789" inputmode="numeric">
+        <p class="field-hint">ID lene ke liye <a href="https://t.me/userinfobot" target="_blank" rel="noopener">@userinfobot</a> ko <code>/start</code> bhejein.</p>
+      </div>
+      <button class="btn btn-gradient w-100" id="btn-site-gate-verify">
+        <span>✅ Verify & Enter Site</span>
+      </button>
+    </div>
+  </div>
+
   <!-- ADMIN LOGIN OVERLAY -->
   <div id="admin-login-overlay" class="login-overlay" style="display: none;">
     <div class="login-card">

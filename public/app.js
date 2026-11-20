@@ -85,29 +85,90 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (overlay) overlay.style.display = 'flex';
   }
 
-  // Check auth status
+  // Site access gate: Telegram group join required
+  const siteToken = localStorage.getItem('siteToken');
+  let siteVerified = false;
+  if (siteToken) {
+    try {
+      const res = await fetch('/api/site/check', { headers: { 'Authorization': `Bearer ${siteToken}` } });
+      const data = await res.json();
+      siteVerified = Boolean(data.verified);
+    } catch (_) { siteVerified = false; }
+  }
+  if (!siteVerified) {
+    localStorage.removeItem('siteToken');
+    const gate = document.getElementById('site-gate-overlay');
+    if (gate) gate.style.display = 'flex';
+    const btnVerify = document.getElementById('btn-site-gate-verify');
+    const input = document.getElementById('site-gate-telegram-id');
+    const errBox = document.getElementById('site-gate-error');
+    const groupLink = document.getElementById('site-gate-group-link');
+    if (btnVerify) {
+      btnVerify.addEventListener('click', async () => {
+        const telegramId = (input?.value || '').trim();
+        if (!telegramId) {
+          if (errBox) { errBox.style.display = 'block'; errBox.textContent = 'Telegram user ID daalein.'; }
+          return;
+        }
+        btnVerify.disabled = true;
+        btnVerify.textContent = 'Verifying…';
+        try {
+          const res = await fetch('/api/site/verify-telegram', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ telegramId })
+          });
+          const data = await res.json();
+          if (res.ok && data.token) {
+            localStorage.setItem('siteToken', data.token);
+            if (gate) gate.style.display = 'none';
+            startAuthFlow();
+          } else {
+            if (errBox) {
+              errBox.style.display = 'block';
+              errBox.textContent = data.error || 'Verification failed';
+              if (data.groupLink && groupLink) groupLink.href = data.groupLink;
+            }
+          }
+        } catch (e) {
+          if (errBox) { errBox.style.display = 'block'; errBox.textContent = e.message; }
+        } finally {
+          btnVerify.disabled = false;
+          btnVerify.textContent = '✅ Verify & Enter Site';
+        }
+      });
+    }
+    return; // stop here until verified
+  }
+
+  startAuthFlow();
+});
+
+function startAuthFlow() {
   const token = localStorage.getItem('adminToken');
   if (!token) {
     showLoginScreen();
   } else {
-    try {
-      const res = await fetch('/api/auth/verify', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (data.authenticated) {
-        localStorage.setItem('authRole', data.role || 'admin');
-        showMainApp();
-        initApp();
-      } else {
-        localStorage.removeItem('adminToken');
+    (async () => {
+      try {
+        const res = await fetch('/api/auth/verify', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.authenticated) {
+          localStorage.setItem('authRole', data.role || 'admin');
+          showMainApp();
+          initApp();
+        } else {
+          localStorage.removeItem('adminToken');
+          showLoginScreen();
+        }
+      } catch (_) {
         showLoginScreen();
       }
-    } catch (_) {
-      showLoginScreen();
-    }
+    })();
   }
-});
+}
 
 async function initApp() {
   applyRoleUi();
