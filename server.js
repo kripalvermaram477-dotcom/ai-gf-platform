@@ -481,6 +481,25 @@ app.post('/api/ai/craft-persona', async (req, res) => {
   }
 });
 
+// 18b. AI latency probe (diagnostics)
+app.get('/api/ai/latency', async (req, res) => {
+  try {
+    const t0 = Date.now();
+    const reply = await geminiService.pollinationsChat({
+      systemPrompt: 'Reply with exactly one word.',
+      userMessage: 'hi'
+    });
+    res.json({
+      ms: Date.now() - t0,
+      reply,
+      keyed: Boolean(geminiService.getPollinationsApiKey()),
+      meta: geminiService.lastRequestMeta || null
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 19. Backup & Restore
 app.get('/api/backup/export', (req, res) => {
   const backup = store.exportBackup();
