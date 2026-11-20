@@ -148,10 +148,10 @@ app.post('/api/auth/change-credentials', requireAdmin, (req, res) => {
 });
 
 // ================= USER ACCOUNT ROUTES =================
-app.post('/api/user/register', (req, res) => {
+app.post('/api/user/register', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const account = store.registerUser({ username, password });
+    const account = await store.registerUser({ username, password });
     const token = store.issueAdminToken(account.username, 30, 'user');
     errorHealer.log('info', `New user registered: ${account.username}`);
     res.json({ success: true, token, role: 'user', account });
@@ -242,7 +242,7 @@ app.post('/api/user/verify-telegram', async (req, res) => {
     });
   }
 
-  const account = store.setAccountTelegram(req.auth.username, {
+  const account = await store.setAccountTelegram(req.auth.username, {
     userId: telegramId,
     displayName: req.body.name || null
   });
@@ -317,10 +317,12 @@ app.post('/api/cloud/sync', requireAdmin, async (req, res) => {
   try {
     const bots = await store.syncBotsToGitHub();
     const users = await store.syncUsersToGitHub(true);
+    const accounts = await store.syncAccountsToGitHub(true);
     res.json({
       configured: store.isCloudStorageConfigured(),
       bots,
-      users
+      users,
+      accounts
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
