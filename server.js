@@ -500,6 +500,89 @@ app.get('/api/ai/latency', async (req, res) => {
   }
 });
 
+// 18c. AI usage & balance dashboard (Pollinations key)
+let aiUsageCache = { at: 0, data: null };
+
+app.get('/api/ai/usage', async (req, res) => {
+  const key = activePollinationsKey();
+  if (!key) {
+    return res.json({ configured: false });
+  }
+  if (!req.query.fresh && aiUsageCache.data && Date.now() - aiUsageCache.at < 30000) {
+    return res.json(aiUsageCache.data);
+  }
+
+  const headers = { Authorization: `Bearer ${key}` };
+  const result = {
+    configured: true,
+    key: null,
+    balance: null,
+    accountBalance: null,
+    needsGrant: false,
+    grantUrl: null,
+    today: null,
+    total: null,
+    recent: []
+  };
+
+  // Key identity (no extra permission needed)
+  try {
+    const kr = await fetch('https://gen.pollinations.ai/account/key', { headers });
+    if (kr.ok) {
+      const k = await kr.json();
+      result.key = {
+        name: k.name || null,
+        type: k.type || null,
+        valid: Boolean(k.valid),
+        expiresAt: k.expiresAt || null,
+        budget: k.pollenBudget ?? null
+      };
+    }
+  } catch (_) {}
+
+  // Balance (needs account:usage; gracefully report if missing)
+  try {
+    const br = await fetch('https://gen.pollinations.ai/account/balance', { headers });
+    const b = await br.json().catch(() => null);
+    if (br.ok && b) {
+      result.balance = typeof b.balance === 'number' ? b.balance : null;
+      result.accountBalance = b.accountBalance || null;
+    } else if (br.status === 403) {
+      result.needsGrant = true;
+      result.grantUrl = b?.error?.fixUrl || b?.fixUrl || null;
+    }
+  } catch (_) {}
+
+  // Per-key usage history (no extra permission needed)
+  try {
+    const ur = await fetch('https://gen.pollinations.ai/account/key/usage', { headers });
+    if (ur.ok) {
+      const u = await ur.json().catch(() => null);
+      const list = Array.isArray(u?.usage) ? u.usage : [];
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const today = list.filter((x) => String(x.timestamp || '').startsWith(todayStr));
+      const sum = (arr, field) => arr.reduce((a, x) => a + (Number(x[field]) || 0), 0);
+      result.today = {
+        requests: today.length,
+        costUsd: sum(today, 'cost_usd'),
+        avgMs: today.length ? Math.round(sum(today, 'response_time_ms') / today.length) : 0,
+        tokensIn: sum(today, 'input_text_tokens'),
+        tokensOut: sum(today, 'output_text_tokens')
+      };
+      result.total = { requests: list.length, costUsd: sum(list, 'cost_usd') };
+      result.recent = list.slice(0, 6).map((x) => ({
+        timestamp: x.timestamp,
+        model: x.model,
+        costUsd: Number(x.cost_usd) || 0,
+        ms: Number(x.response_time_ms) || 0
+      }));
+    }
+  } catch (_) {}
+
+  aiUsageCache = { at: Date.now(), data: result };
+  res.json(result);
+});
+
 // 19. Backup & Restore
 app.get('/api/backup/export', (req, res) => {
   const backup = store.exportBackup();

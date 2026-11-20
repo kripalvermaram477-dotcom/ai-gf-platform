@@ -491,6 +491,53 @@
           </div>
         </div>
 
+        <!-- AI USAGE & BALANCE -->
+        <div class="card usage-card">
+          <div class="usage-head">
+            <div>
+              <h3 class="usage-title">📊 AI Usage & Balance</h3>
+              <p class="field-hint" style="margin: 4px 0 0;">Pollinations.AI key ki live usage — AI kitne requests kar raha hai aur kitna kharch ho raha hai.</p>
+            </div>
+            <button class="btn btn-secondary" id="btn-refresh-usage" type="button">🔄 Refresh</button>
+          </div>
+
+          <div class="usage-balance-row">
+            <div>
+              <span class="usage-label">Remaining balance</span>
+              <div class="usage-balance" id="usage-balance">—</div>
+            </div>
+            <div class="usage-key-info" id="usage-key-info"></div>
+          </div>
+
+          <div class="usage-grid">
+            <div class="usage-stat">
+              <span class="usage-label">Aaj ke requests</span>
+              <strong id="usage-today-req">—</strong>
+            </div>
+            <div class="usage-stat">
+              <span class="usage-label">Aaj ka kharch</span>
+              <strong id="usage-today-cost">—</strong>
+            </div>
+            <div class="usage-stat">
+              <span class="usage-label">Avg reply time</span>
+              <strong id="usage-avg-ms">—</strong>
+            </div>
+            <div class="usage-stat">
+              <span class="usage-label">Total requests</span>
+              <strong id="usage-total-req">—</strong>
+            </div>
+          </div>
+
+          <div id="usage-grant-hint" class="usage-hint" style="display: none;"></div>
+
+          <div class="usage-recent">
+            <span class="usage-label">Recent requests</span>
+            <div id="usage-recent-list" class="usage-recent-list">
+              <span class="usage-empty">Loading…</span>
+            </div>
+          </div>
+        </div>
+
         <div class="card settings-card">
           <!-- AI ENGINE CONFIGURATION -->
           <h3 style="font-size: 1.05rem; margin-bottom: 12px; color: var(--primary);">🤖 AI Engine Provider</h3>

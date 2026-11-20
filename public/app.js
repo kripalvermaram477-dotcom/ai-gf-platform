@@ -94,6 +94,7 @@ async function initApp() {
   await loadPresets();
   await loadConfig();
   await loadBots();
+  loadUsage();
 }
 
 function setupAuth() {
@@ -180,6 +181,7 @@ function setupTabs() {
       if (tabId === 'simulator') syncSimulatorSelect();
       if (tabId === 'broadcast') syncBroadcastSelect();
       if (tabId === 'users') syncCrmSelect();
+      if (tabId === 'settings') loadUsage();
       if (tabId === 'bots') loadBots();
     });
   });
@@ -227,6 +229,117 @@ async function loadConfig() {
     autoHealLabel.className = toggleAutoHeal.checked ? "text-green" : "text-sub";
   } catch (err) {
     console.error("Failed to load config:", err);
+  }
+}
+
+// 2b. AI Usage & Balance dashboard
+function formatUsd(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
+  const n = Number(value);
+  if (n === 0) return '$0.00';
+  if (n < 0.01) return `$${n.toFixed(4)}`;
+  return `$${n.toFixed(2)}`;
+}
+
+function formatMs(ms) {
+  const n = Number(ms);
+  if (!n) return '—';
+  return n >= 1000 ? `${(n / 1000).toFixed(1)}s` : `${Math.round(n)}ms`;
+}
+
+async function loadUsage(force = false) {
+  const balanceEl = document.getElementById('usage-balance');
+  if (!balanceEl) return;
+
+  const setText = (id, text) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  };
+
+  try {
+    const res = await authFetch(`/api/ai/usage${force ? '?fresh=1' : ''}`);
+    const data = await res.json();
+
+    if (!data.configured) {
+      balanceEl.textContent = '—';
+      balanceEl.className = 'usage-balance';
+      setText('usage-key-info', 'No Pollinations key configured');
+      ['usage-today-req', 'usage-today-cost', 'usage-avg-ms', 'usage-total-req'].forEach((id) => setText(id, '—'));
+      const list = document.getElementById('usage-recent-list');
+      if (list) list.innerHTML = '<span class="usage-empty">Add a Pollinations key in the settings below.</span>';
+      const hint = document.getElementById('usage-grant-hint');
+      if (hint) hint.style.display = 'none';
+      return;
+    }
+
+    // Balance
+    if (data.needsGrant) {
+      balanceEl.textContent = '—';
+      balanceEl.className = 'usage-balance';
+      const hint = document.getElementById('usage-grant-hint');
+      if (hint) {
+        hint.style.display = 'block';
+        hint.innerHTML = data.grantUrl
+          ? `Balance dekhne ke liye key ko <strong>usage permission</strong> dein: <a href="${data.grantUrl}" target="_blank" rel="noopener">Grant permission →</a>`
+          : 'Balance dekhne ke liye key ko <strong>account:usage</strong> permission chahiye.';
+      }
+    } else {
+      const bal = data.balance;
+      balanceEl.textContent = formatUsd(bal);
+      balanceEl.className = 'usage-balance';
+      if (bal !== null && bal <= 0) balanceEl.classList.add('is-empty');
+      else if (bal !== null && bal < 0.5) balanceEl.classList.add('is-low');
+      const hint = document.getElementById('usage-grant-hint');
+      if (hint) hint.style.display = 'none';
+    }
+
+    // Key info
+    const key = data.key || {};
+    const keyParts = [];
+    if (key.name) keyParts.push(`Key: <strong>${key.name}</strong>`);
+    keyParts.push(key.expiresAt ? `Expires: ${new Date(key.expiresAt).toLocaleDateString()}` : 'Never expires');
+    keyParts.push(key.budget === null || key.budget === undefined ? 'No per-key cap' : `Budget: ${formatUsd(key.budget)}`);
+    if (data.accountBalance && typeof data.accountBalance.total === 'number') {
+      const ab = data.accountBalance;
+      const parts = [`Total ${formatUsd(ab.total)}`];
+      if (typeof ab.tier === 'number') parts.push(`Quest ${formatUsd(ab.tier)}`);
+      if (typeof ab.paid === 'number') parts.push(`Paid ${formatUsd(ab.paid)}`);
+      keyParts.push(parts.join(' · '));
+    }
+    const keyInfoEl = document.getElementById('usage-key-info');
+    if (keyInfoEl) keyInfoEl.innerHTML = keyParts.join('<br>');
+
+    // Today's stats
+    const today = data.today || {};
+    setText('usage-today-req', today.requests ?? 0);
+    setText('usage-today-cost', formatUsd(today.costUsd ?? 0));
+    setText('usage-avg-ms', formatMs(today.avgMs));
+    setText('usage-total-req', data.total?.requests ?? 0);
+
+    // Recent requests
+    const list = document.getElementById('usage-recent-list');
+    if (list) {
+      const items = Array.isArray(data.recent) ? data.recent : [];
+      if (!items.length) {
+        list.innerHTML = '<span class="usage-empty">Abhi koi usage nahi hai.</span>';
+      } else {
+        list.innerHTML = items.map((x) => {
+          const model = String(x.model || '').split('/').pop();
+          const time = String(x.timestamp || '').slice(11, 16);
+          return `<div class="usage-recent-item">
+            <span class="usage-recent-model">${model || 'request'}</span>
+            <span class="usage-recent-meta">
+              <span>${time}</span>
+              <span>${formatMs(x.ms)}</span>
+              <span>${formatUsd(x.costUsd)}</span>
+            </span>
+          </div>`;
+        }).join('');
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load AI usage:', err);
+    balanceEl.textContent = '—';
   }
 }
 
@@ -1296,6 +1409,17 @@ function setupSettings() {
   const btnToggleVis = document.getElementById('btn-toggle-key-vis');
   const pollInput = document.getElementById('settings-pollinations-key');
   const btnTogglePollVis = document.getElementById('btn-toggle-poll-vis');
+  const btnRefreshUsage = document.getElementById('btn-refresh-usage');
+
+  if (btnRefreshUsage) {
+    btnRefreshUsage.addEventListener('click', async () => {
+      btnRefreshUsage.disabled = true;
+      btnRefreshUsage.textContent = '⏳ Loading…';
+      await loadUsage(true);
+      btnRefreshUsage.disabled = false;
+      btnRefreshUsage.textContent = '🔄 Refresh';
+    });
+  }
 
   btnToggleVis.addEventListener('click', () => {
     keyInput.type = keyInput.type === 'password' ? 'text' : 'password';
