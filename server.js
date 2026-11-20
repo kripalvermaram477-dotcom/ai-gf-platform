@@ -364,13 +364,19 @@ app.post('/api/bots', async (req, res) => {
           groupLink: `https://t.me/${group.replace(/^@/, '')}`
         });
       }
+      const geminiKey = (customSettings.geminiApiKey || '').trim();
+      if (!geminiKey) {
+        return res.status(400).json({ error: "Gemini API Key required. Apna Gemini key daalein (aistudio.google.com/apikey)." });
+      }
     }
 
     const newBot = await store.addBot({
       token,
       name,
       preset,
-      customSettings,
+      customSettings: role === 'user'
+        ? { ...customSettings, geminiApiKey: (customSettings.geminiApiKey || '').trim(), aiProvider: 'gemini' }
+        : customSettings,
       owner: role === 'admin' ? 'admin' : req.auth.username
     });
     errorHealer.log('info', `Added new bot [${newBot.settings.name}] for ${newBot.owner}`);
