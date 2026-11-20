@@ -210,6 +210,10 @@ async function loadConfig() {
     if (appState.config.hasGeminiKey) {
       keyInput.placeholder = `Configured (${appState.config.geminiApiKey})`;
     }
+    const pollInput = document.getElementById('settings-pollinations-key');
+    if (pollInput && appState.config.hasPollinationsKey) {
+      pollInput.placeholder = `Configured (${appState.config.pollinationsApiKey})`;
+    }
     if (appState.config.geminiModel) {
       modelSelect.value = appState.config.geminiModel;
     }
@@ -1274,18 +1278,28 @@ function setupSettings() {
   const modelSelect = document.getElementById('settings-gemini-model');
   const providerSelect = document.getElementById('settings-ai-provider');
   const btnToggleVis = document.getElementById('btn-toggle-key-vis');
+  const pollInput = document.getElementById('settings-pollinations-key');
+  const btnTogglePollVis = document.getElementById('btn-toggle-poll-vis');
 
   btnToggleVis.addEventListener('click', () => {
     keyInput.type = keyInput.type === 'password' ? 'text' : 'password';
   });
+
+  if (btnTogglePollVis && pollInput) {
+    btnTogglePollVis.addEventListener('click', () => {
+      pollInput.type = pollInput.type === 'password' ? 'text' : 'password';
+    });
+  }
 
   btnSave.addEventListener('click', async () => {
     const geminiApiKey = keyInput.value.trim();
     const geminiModel = modelSelect.value;
     const aiProvider = providerSelect.value;
 
+    const pollinationsApiKey = pollInput ? pollInput.value.trim() : '';
     const body = { geminiModel, aiProvider };
     if (geminiApiKey) body.geminiApiKey = geminiApiKey;
+    if (pollinationsApiKey) body.pollinationsApiKey = pollinationsApiKey;
 
     try {
       const res = await authFetch('/api/config', {
@@ -1296,6 +1310,7 @@ function setupSettings() {
       if (res.ok) {
         showToast("AI Engine settings saved successfully!", "success");
         keyInput.value = '';
+        if (pollInput) pollInput.value = '';
         await loadConfig();
       } else {
         const data = await res.json();

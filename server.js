@@ -39,6 +39,13 @@ if (process.env.GEMINI_API_KEY && !store.getConfig().geminiApiKey) {
   store.setGeminiApiKey(process.env.GEMINI_API_KEY);
 }
 
+// Load the Pollinations key (env or dashboard) into the AI engine at startup
+{
+  const cfg = store.getConfig();
+  const pKey = cfg.pollinationsApiKey || process.env.POLLINATIONS_API_KEY || '';
+  if (pKey) geminiService.setPollinationsApiKey(pKey);
+}
+
 // ================= AUTH MIDDLEWARE =================
 app.use((req, res, next) => {
   // Public routes that don't need authentication
@@ -112,6 +119,7 @@ app.get('/api/status', (req, res) => {
     totalBots: bots.length,
     autoHealEnabled: config.autoHealEnabled,
     geminiConfigured: Boolean(config.geminiApiKey),
+    pollinationsConfigured: Boolean(config.pollinationsApiKey),
     memoryUsage: process.memoryUsage()
   });
 });
@@ -122,6 +130,8 @@ app.get('/api/config', (req, res) => {
   res.json({
     geminiApiKey: config.geminiApiKey ? `${config.geminiApiKey.substring(0, 6)}...${config.geminiApiKey.slice(-4)}` : '',
     hasGeminiKey: Boolean(config.geminiApiKey),
+    pollinationsApiKey: config.pollinationsApiKey ? `${config.pollinationsApiKey.substring(0, 5)}...${config.pollinationsApiKey.slice(-4)}` : '',
+    hasPollinationsKey: Boolean(config.pollinationsApiKey),
     geminiModel: config.geminiModel || 'gemini-3.5-flash-lite',
     aiProvider: config.aiProvider || 'auto',
     autoHealEnabled: config.autoHealEnabled
@@ -129,10 +139,15 @@ app.get('/api/config', (req, res) => {
 });
 
 app.post('/api/config', (req, res) => {
-  const { geminiApiKey, geminiModel, aiProvider, autoHealEnabled } = req.body;
+  const { geminiApiKey, pollinationsApiKey, geminiModel, aiProvider, autoHealEnabled } = req.body;
   if (geminiApiKey !== undefined && geminiApiKey !== '') {
     store.setGeminiApiKey(geminiApiKey);
     errorHealer.log('info', 'Gemini API Key updated.');
+  }
+  if (pollinationsApiKey !== undefined && pollinationsApiKey !== '') {
+    store.setPollinationsApiKey(pollinationsApiKey);
+    geminiService.setPollinationsApiKey(pollinationsApiKey);
+    errorHealer.log('info', 'Pollinations API Key updated.');
   }
   if (geminiModel !== undefined) {
     store.setGeminiModel(geminiModel);
