@@ -422,14 +422,6 @@ app.post('/api/bots', async (req, res) => {
     if (role === 'user') {
       const account = store.publicAccount(req.auth.username);
       if (!account) return res.status(401).json({ error: "Account not found" });
-      if (!account.telegramVerified) {
-        const group = store.getConfig().requiredGroup || '@gfopiu';
-        return res.status(403).json({
-          error: `Bot connect karne se pehle Telegram group join karke verify karein (${group}).`,
-          requiresTelegram: true,
-          groupLink: `https://t.me/${group.replace(/^@/, '')}`
-        });
-      }
       const geminiKey = (customSettings.geminiApiKey || '').trim();
       if (!geminiKey) {
         return res.status(400).json({ error: "Gemini API Key required. Apna Gemini key daalein (aistudio.google.com/apikey)." });

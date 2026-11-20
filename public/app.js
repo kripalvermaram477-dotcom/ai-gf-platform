@@ -88,7 +88,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Site access gate: Telegram group join required
   const siteToken = localStorage.getItem('siteToken');
   let siteVerified = false;
-  if (siteToken === 'admin-bypass') {
+  if (siteToken === 'admin-bypass' || siteToken === 'skipped') {
     siteVerified = true;
   } else if (siteToken) {
     try {
@@ -106,11 +106,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     const errBox = document.getElementById('site-gate-error');
     const groupLink = document.getElementById('site-gate-group-link');
     const adminBypass = document.getElementById('site-gate-admin-bypass');
+    const skipLink = document.getElementById('site-gate-skip');
     if (adminBypass) {
       adminBypass.addEventListener('click', (e) => {
         e.preventDefault();
         localStorage.setItem('siteToken', 'admin-bypass');
         localStorage.setItem('authRole', 'admin');
+        if (gate) gate.style.display = 'none';
+        startAuthFlow();
+      });
+    }
+    if (skipLink) {
+      skipLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        localStorage.setItem('siteToken', 'skipped');
         if (gate) gate.style.display = 'none';
         startAuthFlow();
       });
@@ -1354,9 +1363,8 @@ function setupModal() {
     }
 
     if (currentRole() === 'user' && !telegramVerifiedForUser) {
-      alert("Pehle Telegram verify karein — group join karke apna user ID daalein.");
-      verifySection.style.display = 'block';
-      return;
+      // Soft warning only — allow proceeding
+      console.warn('Telegram not verified, proceeding anyway');
     }
 
     spinner.style.display = 'inline-block';
