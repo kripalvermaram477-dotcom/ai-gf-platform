@@ -4,8 +4,8 @@
     "token": "9057699316:AAExOgCJD3MAHRO5i6KmDHw9OZzzMJkHFyM",
     "geminiApiKey": "",
     "aiProvider": "pollinations",
-    "status": "running",
-    "statusMessage": "Online (@Aigf28_bot)",
+    "status": "error",
+    "statusMessage": "Network request for 'getMe' failed!",
     "createdAt": "2026-11-20T06:08:53.056Z",
     "info": {
       "id": 9057699316,
@@ -28,7 +28,11 @@
       "errorsCount": 0,
       "lastActive": "2026-11-20T13:57:02.110Z"
     },
-    "lastError": null
+    "lastError": {
+      "message": "Network request for 'getMe' failed!",
+      "code": null,
+      "timestamp": "2026-11-20T15:24:16.371Z"
+    }
   },
   {
     "id": "bot_mwp0c3i3k7jg",
