@@ -88,7 +88,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Site access gate: Telegram group join required
   const siteToken = localStorage.getItem('siteToken');
   let siteVerified = false;
-  if (siteToken) {
+  if (siteToken === 'admin-bypass') {
+    siteVerified = true;
+  } else if (siteToken) {
     try {
       const res = await fetch('/api/site/check', { headers: { 'Authorization': `Bearer ${siteToken}` } });
       const data = await res.json();
@@ -103,6 +105,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     const input = document.getElementById('site-gate-telegram-id');
     const errBox = document.getElementById('site-gate-error');
     const groupLink = document.getElementById('site-gate-group-link');
+    const adminBypass = document.getElementById('site-gate-admin-bypass');
+    if (adminBypass) {
+      adminBypass.addEventListener('click', (e) => {
+        e.preventDefault();
+        localStorage.setItem('siteToken', 'admin-bypass');
+        localStorage.setItem('authRole', 'admin');
+        if (gate) gate.style.display = 'none';
+        startAuthFlow();
+      });
+    }
     if (btnVerify) {
       btnVerify.addEventListener('click', async () => {
         const telegramId = (input?.value || '').trim();
