@@ -539,6 +539,12 @@ function setupStudio() {
         resultVibe.textContent = data.persona.relationshipVibe;
         resultPrompt.value = data.persona.systemPrompt;
         previewBox.style.display = 'block';
+        const engineHint = document.getElementById('studio-engine-hint');
+        if (engineHint) {
+          engineHint.textContent = data.engine === 'gemini'
+            ? '⚡ AI Engine: Google Gemini'
+            : '⚡ AI Engine: Pollinations.AI';
+        }
         showToast("Persona crafted successfully!", "success");
       } else {
         alert(`Error: ${data.error}`);

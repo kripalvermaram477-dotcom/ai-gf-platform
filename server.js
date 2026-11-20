@@ -448,13 +448,20 @@ app.post('/api/ai/craft-persona', async (req, res) => {
       return res.status(400).json({ error: "Please provide a character concept or idea" });
     }
     const globalConfig = store.getConfig();
-    const apiKey = globalConfig.geminiApiKey;
-    if (!apiKey) {
-      return res.status(400).json({ error: "Gemini API key is required in Settings" });
+    const apiKey = globalConfig.geminiApiKey || '';
+    const provider = globalConfig.aiProvider || 'auto';
+
+    // Gemini-only mode needs a key; Pollinations works with or without one.
+    if (provider === 'gemini' && !apiKey) {
+      return res.status(400).json({
+        error: "Gemini-only mode is selected but no Gemini key is set. Switch AI Provider to 'Pollinations.AI' or 'Auto' in Settings."
+      });
     }
 
-    const persona = await geminiService.generatePersonaFromIdea({ apiKey, idea: idea.trim() });
-    res.json({ success: true, persona });
+    const persona = await geminiService.generatePersonaFromIdea({ apiKey, idea: idea.trim(), provider });
+    const engine = persona._engine || (provider === 'gemini' ? 'gemini' : 'pollinations');
+    delete persona._engine;
+    res.json({ success: true, persona, engine });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
