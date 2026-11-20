@@ -214,6 +214,8 @@ async function loadConfig() {
     if (pollInput && appState.config.hasPollinationsKey) {
       pollInput.placeholder = `Configured (${appState.config.pollinationsApiKey})`;
     }
+    const copilotIndicator = document.getElementById('copilot-status-indicator');
+    if (copilotIndicator) copilotIndicator.textContent = pollinationsEngineLabel();
     if (appState.config.geminiModel) {
       modelSelect.value = appState.config.geminiModel;
     }
@@ -1045,6 +1047,14 @@ window.setCopilotPrompt = (text) => {
 
 let lastCopilotResult = null;
 
+// Pollinations label depends on whether an API key is configured
+function pollinationsEngineLabel() {
+  const hasKey = Boolean(appState.config && appState.config.hasPollinationsKey);
+  return hasKey
+    ? '🌸 Engine: Pollinations.AI (key active — no 45s limit)'
+    : '⚠️ Engine: Pollinations.AI free tier (1 reply / 45s — add key in Settings)';
+}
+
 function setupCopilot() {
   const btnRun = document.getElementById('btn-run-copilot');
   const spinner = document.getElementById('copilot-spinner');
@@ -1062,7 +1072,7 @@ function setupCopilot() {
     providerSelect.addEventListener('change', () => {
       const p = providerSelect.value;
       if (p === 'pollinations') {
-        indicator.textContent = '🌸 Engine: Pollinations.AI (Free — 1 reply / 45s)';
+        indicator.textContent = pollinationsEngineLabel();
       } else if (p === 'gemini') {
         indicator.textContent = '⚡ Engine: Google Gemini API';
       } else {

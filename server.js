@@ -43,7 +43,12 @@ if (process.env.GEMINI_API_KEY && !store.getConfig().geminiApiKey) {
 {
   const cfg = store.getConfig();
   const pKey = cfg.pollinationsApiKey || process.env.POLLINATIONS_API_KEY || '';
-  if (pKey) geminiService.setPollinationsApiKey(pKey);
+  if (pKey) {
+    geminiService.setPollinationsApiKey(pKey);
+    console.log('[AI] Pollinations key loaded — 45s free limit disabled.');
+  } else {
+    console.warn('[AI] No Pollinations key found. Free tier limit applies (1 reply / 45s). Add it in Settings or set POLLINATIONS_API_KEY in Render.');
+  }
 }
 
 // ================= AUTH MIDDLEWARE =================
