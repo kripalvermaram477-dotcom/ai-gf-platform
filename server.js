@@ -86,7 +86,8 @@ function botAccess(req, res, next) {
   if (!bot) return res.status(404).json({ error: "Bot not found" });
   const isAdmin = req.auth?.role === 'admin';
   const isOwner = req.auth?.role === 'user' && (bot.owner || 'admin') === req.auth.username;
-  if (!isAdmin && !isOwner) {
+  const adminOwns = isAdmin && (bot.owner || 'admin') === 'admin';
+  if (!adminOwns && !isOwner) {
     return res.status(403).json({ error: "You do not have access to this bot" });
   }
   req.bot = bot;
@@ -334,11 +335,11 @@ app.get('/api/presets', (req, res) => {
   res.json(PERSONALITY_PRESETS);
 });
 
-// 4. List all Bots (users only see their own bots)
+// 4. List all Bots (users only see their own bots; admin only sees own bots)
 app.get('/api/bots', (req, res) => {
   const bots = store.getBots();
   if (req.auth?.role === 'admin') {
-    return res.json(bots);
+    return res.json(bots.filter(b => (b.owner || 'admin') === 'admin'));
   }
   res.json(bots.filter(b => (b.owner || 'admin') === req.auth?.username));
 });
@@ -465,6 +466,9 @@ app.post('/api/ai/copilot', async (req, res) => {
     const isNew = !botId || botId === '__new__';
     const currentBot = isNew ? null : store.getBot(botId);
     if (!isNew && req.auth?.role === 'user' && (currentBot?.owner || 'admin') !== req.auth.username) {
+      return res.status(403).json({ error: "You do not have access to this bot" });
+    }
+    if (!isNew && req.auth?.role === 'admin' && (currentBot?.owner || 'admin') !== 'admin') {
       return res.status(403).json({ error: "You do not have access to this bot" });
     }
     const globalConfig = store.getConfig();
