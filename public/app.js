@@ -314,7 +314,7 @@ async function loadUsage(force = false) {
     setText('usage-today-req', today.requests ?? 0);
     setText('usage-today-cost', formatUsd(today.costUsd ?? 0));
     setText('usage-avg-ms', formatMs(today.avgMs));
-    setText('usage-total-req', data.total?.requests ?? 0);
+    setText('usage-total-req', formatUsd(data.total?.costUsd ?? 0));
 
     // Recent requests
     const list = document.getElementById('usage-recent-list');
