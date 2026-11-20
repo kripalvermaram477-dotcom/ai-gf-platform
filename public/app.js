@@ -1,4 +1,8 @@
 // State
+function currentRole() {
+  return localStorage.getItem('authRole') || 'admin';
+}
+
 let appState = {
   bots: [],
   presets: {},

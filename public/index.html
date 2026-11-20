@@ -40,6 +40,35 @@
     </div>
   </div>
 
+  <!-- USER REQUIREMENTS OVERLAY (shown until all requirements met) -->
+  <div id="user-requirements-overlay" class="login-overlay" style="display: none;">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="logo-badge"><span class="heart-pulse">📋</span></div>
+        <h2>Requirements Complete Karein</h2>
+        <p>Normal users ke liye ye steps zaroori hain</p>
+      </div>
+      <div id="user-req-error" class="alert-box" style="display: none;"></div>
+      <div style="text-align:left; margin: 12px 0;">
+        <p style="margin:6px 0;"><span id="req-tg">❌</span> Telegram group <a href="https://t.me/gfopiu" target="_blank" rel="noopener">@gfopiu</a> join karein</p>
+        <p style="margin:6px 0;"><span id="req-verify">❌</span> Telegram ID verify karein</p>
+        <p style="margin:6px 0;"><span id="req-bot">❌</span> Bot connect karein (Gemini API key ke sath)</p>
+        <p style="margin:6px 0;"><span id="req-studio">ℹ️</span> Persona Studio: 2 referrals (optional)</p>
+      </div>
+      <div class="form-group">
+        <label for="user-req-telegram-id">Apna Telegram User ID:</label>
+        <input type="text" id="user-req-telegram-id" class="form-input" placeholder="e.g. 123456789" inputmode="numeric">
+        <p class="field-hint">ID lene ke liye <a href="https://t.me/userinfobot" target="_blank" rel="noopener">@userinfobot</a> ko <code>/start</code> bhejein.</p>
+      </div>
+      <button class="btn btn-gradient w-100" id="btn-user-req-verify">
+        <span>✅ Verify & Continue</span>
+      </button>
+      <p class="field-hint text-center" style="margin-top:10px; font-size:0.75rem;">
+        Admin hain? <a href="#" id="user-req-admin-bypass" style="color: var(--primary); text-decoration: underline;">Yahan click karein →</a>
+      </p>
+    </div>
+  </div>
+
   <!-- ADMIN LOGIN OVERLAY -->
   <div id="admin-login-overlay" class="login-overlay" style="display: none;">
     <div class="login-card">
