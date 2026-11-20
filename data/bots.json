@@ -36,13 +36,13 @@
     "owner": "admin",
     "geminiApiKey": "",
     "aiProvider": "pollinations",
-    "status": "stopped",
-    "statusMessage": "Initialized",
+    "status": "running",
+    "statusMessage": "Online (@Weldome321_bot)",
     "createdAt": "2026-11-20T13:21:03.675Z",
     "info": {
-      "id": null,
-      "name": "Ty",
-      "username": null
+      "id": 9243555951,
+      "name": "Welcome bot",
+      "username": "Weldome321_bot"
     },
     "settings": {
       "name": "Ty",
