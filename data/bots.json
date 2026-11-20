@@ -24,7 +24,7 @@
     },
     "stats": {
       "totalMessages": 0,
-      "activeUsers": 0,
+      "activeUsers": 1,
       "errorsCount": 0,
       "lastActive": null
     },
