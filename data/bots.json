@@ -31,14 +31,14 @@
     "lastError": null
   },
   {
-    "id": "bot_mwom68tx0rue",
+    "id": "bot_mwom6islwe6l",
     "token": "987654321:ZZZyyyXXXwwwVVVuuuTTTsssRRRqqq",
     "owner": "testuser3",
     "geminiApiKey": "",
     "aiProvider": "auto",
     "status": "stopped",
     "statusMessage": "Initialized",
-    "createdAt": "2026-11-20T06:44:36.021Z",
+    "createdAt": "2026-11-20T06:44:48.933Z",
     "info": {
       "id": null,
       "name": "TestUserBot",
