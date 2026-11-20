@@ -40,6 +40,12 @@
         <input type="password" id="login-password" class="form-input" placeholder="Password" autocomplete="current-password">
       </div>
 
+      <div class="form-group" id="login-referral-group" style="display: none;">
+        <label for="login-referral">Referral Code (Optional):</label>
+        <input type="text" id="login-referral" class="form-input" placeholder="referrer username">
+        <p class="field-hint">Kisi ne invite kiya? Unka username daalein (2 referrals = 1 day Persona Studio).</p>
+      </div>
+
       <button class="btn btn-gradient w-100" id="btn-submit-login">
         <span id="login-btn-text">🔐 Login</span>
       </button>
@@ -131,7 +137,11 @@
           </div>
         </div>
 
-        <div id="local-restore-banner" style="display: none; background: rgba(168, 85, 247, 0.15); border: 1px solid var(--primary); padding: 12px 16px; border-radius: 8px; margin-bottom: 18px; align-items: center; justify-content: space-between;">
+        <div id="referral-banner" class="verify-box" style="display: none; margin-bottom: 14px;">
+          <h4 class="verify-title">🎁 Referral & Persona Studio</h4>
+          <p class="verify-text" id="referral-banner-text"></p>
+          <p class="field-hint" id="referral-banner-code"></p>
+        </div>
           <div>
             <strong>💾 Saved Bots Backup Found!</strong>
             <p style="font-size: 0.85rem; color: var(--text-dim); margin-top: 2px;">Aapke pehle se connected bots is browser me saved hain.</p>
@@ -190,7 +200,11 @@
         </div>
 
         <div class="card studio-card">
-          <div class="form-group">
+          <div id="studio-referral-banner" class="verify-box" style="display: none; margin-bottom: 14px;">
+            <h4 class="verify-title">🔒 Persona Studio locked</h4>
+            <p class="verify-text" id="studio-referral-text"></p>
+            <p class="field-hint" id="studio-referral-code"></p>
+          </div>
             <label for="studio-idea-input">Aapka Character Idea:</label>
             <div class="input-with-button">
               <input type="text" id="studio-idea-input" class="form-input" placeholder="e.g. Cute college senior anime girl jo thoda tease kare aur Hinglish me baat kare">
@@ -700,6 +714,12 @@
               <option value="auto">🔄 Auto (Gemini + Pollinations Fallback)</option>
               <option value="gemini">⚡ Google Gemini API</option>
             </select>
+          </div>
+
+          <div class="form-group" id="modal-gemini-key-group" style="display: none;">
+            <label for="modal-gemini-key">Gemini API Key: <span class="required">*</span></label>
+            <input type="password" id="modal-gemini-key" class="form-input" placeholder="AIzaSy...">
+            <p class="field-hint">Users must provide their own Gemini key. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Get key →</a></p>
           </div>
 
           <div class="form-checkbox">

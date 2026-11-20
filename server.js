@@ -150,8 +150,8 @@ app.post('/api/auth/change-credentials', requireAdmin, (req, res) => {
 // ================= USER ACCOUNT ROUTES =================
 app.post('/api/user/register', async (req, res) => {
   try {
-    const { username, password } = req.body;
-    const account = await store.registerUser({ username, password });
+    const { username, password, ref } = req.body;
+    const account = await store.registerUser({ username, password, ref });
     const token = store.issueAdminToken(account.username, 30, 'user');
     errorHealer.log('info', `New user registered: ${account.username}`);
     res.json({ success: true, token, role: 'user', account });
@@ -666,6 +666,20 @@ app.post('/api/ai/craft-persona', async (req, res) => {
     const globalConfig = store.getConfig();
     const apiKey = globalConfig.geminiApiKey || '';
     const provider = globalConfig.aiProvider || 'auto';
+
+    // Users must earn referrals to unlock Persona Studio
+    if (req.auth?.role === 'user') {
+      const account = store.publicAccount(req.auth.username);
+      const until = account?.studioAccessUntil ? new Date(account.studioAccessUntil) : null;
+      if (!until || until < new Date()) {
+        return res.status(403).json({
+          error: "Persona Studio unlock karne ke liye 2 referrals chahiye (5 referrals = 4 days access).",
+          requiresReferral: true,
+          referralCount: account?.referralCount || 0,
+          studioAccessUntil: account?.studioAccessUntil || null
+        });
+      }
+    }
 
     // Gemini-only mode needs a key; Pollinations works with or without one.
     if (provider === 'gemini' && !apiKey) {

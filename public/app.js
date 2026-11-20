@@ -101,11 +101,30 @@ async function initApp() {
   } else {
     await loadPresets();
     await loadBots();
+    loadReferralInfo();
   }
 }
 
-function currentRole() {
-  return localStorage.getItem('authRole') || 'admin';
+async function loadReferralInfo() {
+  if (currentRole() !== 'user') return;
+  const banner = document.getElementById('referral-banner');
+  if (!banner) return;
+  try {
+    const res = await authFetch('/api/user/me');
+    const me = await res.json();
+    const until = me.studioAccessUntil ? new Date(me.studioAccessUntil) : null;
+    const active = until && until > new Date();
+    const daysLeft = active ? Math.ceil((until - new Date()) / 86400000) : 0;
+    banner.style.display = 'block';
+    const text = document.getElementById('referral-banner-text');
+    const code = document.getElementById('referral-banner-code');
+    if (text) text.textContent = active
+      ? `✅ Persona Studio unlocked — ${daysLeft} day(s) left. Referrals: ${me.referralCount || 0}`
+      : `Persona Studio locked. 2 referrals chahiye (5 referrals = 4 days). Aapke referrals: ${me.referralCount || 0}`;
+    if (code) code.innerHTML = `Aapka referral code: <strong>${me.referralCode}</strong> · Invite link: <code>${window.location.origin}?ref=${me.referralCode}</code>`;
+  } catch (_) {
+    banner.style.display = 'none';
+  }
 }
 
 function applyRoleUi() {
@@ -163,7 +182,9 @@ function setupAuth() {
     }
   };
 
-  let mode = 'admin';
+  const params = new URLSearchParams(window.location.search);
+  const initialMode = params.get('ref') ? 'register' : 'admin';
+  let mode = initialMode;
 
   const setMode = (next) => {
     mode = next;
@@ -173,9 +194,17 @@ function setupAuth() {
     btnText.textContent = modes[next].btn;
     hintEl.innerHTML = modes[next].hint;
     errBox.style.display = 'none';
+    const refGroup = document.getElementById('login-referral-group');
+    if (refGroup) refGroup.style.display = next === 'register' ? 'block' : 'none';
   };
 
   roleBtns.forEach(btn => btn.addEventListener('click', () => setMode(btn.dataset.mode)));
+
+  if (initialMode !== 'admin') {
+    setMode(initialMode);
+    const refInput = document.getElementById('login-referral');
+    if (refInput && params.get('ref')) refInput.value = params.get('ref');
+  }
 
   const doSubmit = async () => {
     const username = userInput.value.trim();
@@ -193,10 +222,17 @@ function setupAuth() {
         : '/api/user/register';
 
     try {
+      const body = { username, password };
+      if (mode === 'register') {
+        const refInput = document.getElementById('login-referral');
+        const ref = refInput ? refInput.value.trim() : '';
+        if (ref) body.ref = ref;
+      }
+
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify(body)
       });
       const data = await res.json();
       if (res.ok && data.token) {
@@ -712,11 +748,47 @@ function setupStudio() {
   const resultPrompt = document.getElementById('studio-result-prompt');
   const btnApply = document.getElementById('btn-studio-apply-to-bot');
 
+  async function refreshStudioAccess() {
+    const banner = document.getElementById('studio-referral-banner');
+    const text = document.getElementById('studio-referral-text');
+    const codeEl = document.getElementById('studio-referral-code');
+    if (currentRole() !== 'user') {
+      if (banner) banner.style.display = 'none';
+      return true;
+    }
+    try {
+      const res = await authFetch('/api/user/me');
+      const me = await res.json();
+      const until = me.studioAccessUntil ? new Date(me.studioAccessUntil) : null;
+      if (until && until > new Date()) {
+        if (banner) banner.style.display = 'none';
+        return true;
+      }
+      if (banner) {
+        banner.style.display = 'block';
+        if (text) text.textContent = `Persona Studio locked. 2 referrals chahiye (5 referrals = 4 days access). Aapke referrals: ${me.referralCount || 0}`;
+        if (codeEl) codeEl.innerHTML = `Aapka referral code: <strong>${me.referralCode}</strong><br>Link: <code>${window.location.origin}?ref=${me.referralCode}</code>`;
+      }
+      return false;
+    } catch (_) {
+      return true;
+    }
+  }
+  refreshStudioAccess();
+
   btnGen.addEventListener('click', async () => {
     const idea = input.value.trim();
     if (!idea) {
       alert("Please enter a character idea first!");
       return;
+    }
+
+    if (currentRole() === 'user') {
+      const ok = await refreshStudioAccess();
+      if (!ok) {
+        alert("Persona Studio locked. Pehle 2 referrals lao (5 referrals = 4 days access).");
+        return;
+      }
     }
 
     btnGen.textContent = "Crafting Persona...";
@@ -1046,11 +1118,14 @@ function setupModal() {
   let telegramVerifiedForUser = false;
 
   async function refreshVerificationState() {
+    const geminiGroup = document.getElementById('modal-gemini-key-group');
     if (currentRole() !== 'user') {
       verifySection.style.display = 'none';
+      if (geminiGroup) geminiGroup.style.display = 'none';
       telegramVerifiedForUser = true;
       return true;
     }
+    if (geminiGroup) geminiGroup.style.display = 'block';
     try {
       const res = await authFetch('/api/user/me');
       const me = await res.json();
@@ -1142,11 +1217,23 @@ function setupModal() {
 
     try {
       const modalProviderEl = document.getElementById('modal-bot-provider');
-      const aiProvider = modalProviderEl ? modalProviderEl.value : 'pollinations';
-      const customSettings = {
-        ...(appState.pendingCustomSettings || {}),
-        aiProvider
-      };
+      let aiProvider = modalProviderEl ? modalProviderEl.value : 'pollinations';
+      const customSettings = { ...(appState.pendingCustomSettings || {}) };
+      if (currentRole() === 'user') {
+        const geminiKeyInput = document.getElementById('modal-gemini-key');
+        const geminiKey = geminiKeyInput ? geminiKeyInput.value.trim() : '';
+        if (!geminiKey) {
+          alert("Gemini API Key required. Apna Gemini key daalein (aistudio.google.com/apikey).");
+          spinner.style.display = 'none';
+          btnSubmit.disabled = false;
+          return;
+        }
+        customSettings.geminiApiKey = geminiKey;
+        customSettings.aiProvider = 'gemini';
+        aiProvider = 'gemini';
+      } else {
+        customSettings.aiProvider = aiProvider;
+      }
       const res = await authFetch('/api/bots', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1395,6 +1482,20 @@ function setupCopilot() {
   const btnLaunch = document.getElementById('btn-copilot-launch-bot');
   const btnOpenSim = document.getElementById('btn-copilot-open-sim');
   const badgeEl = document.getElementById('copilot-result-badge');
+
+  // Pollinations in Copilot: only for users; admin uses Gemini/Auto
+  if (providerSelect) {
+    if (currentRole() === 'admin') {
+      const pollOpt = providerSelect.querySelector('option[value="pollinations"]');
+      if (pollOpt) pollOpt.remove();
+      if (providerSelect.value === 'pollinations') providerSelect.value = 'auto';
+    } else {
+      Array.from(providerSelect.options).forEach((opt) => {
+        if (opt.value !== 'pollinations') opt.remove();
+      });
+      providerSelect.value = 'pollinations';
+    }
+  }
 
   if (providerSelect && indicator) {
     providerSelect.addEventListener('change', () => {
