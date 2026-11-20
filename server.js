@@ -365,7 +365,7 @@ app.post('/api/bots', async (req, res) => {
       }
     }
 
-    const newBot = store.addBot({
+    const newBot = await store.addBot({
       token,
       name,
       preset,
