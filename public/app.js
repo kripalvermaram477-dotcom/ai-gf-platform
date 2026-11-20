@@ -52,19 +52,38 @@ function showMainApp() {
 }
 
 // Initialize
+// Global error handler — never show a black screen
+window.addEventListener('error', (e) => {
+  try {
+    const overlay = document.getElementById('admin-login-overlay');
+    if (overlay) overlay.style.display = 'flex';
+    const errBox = document.getElementById('login-error-alert');
+    if (errBox) {
+      errBox.style.display = 'block';
+      errBox.textContent = `Page error: ${e.message || 'Unknown'}. Please refresh.`;
+    }
+  } catch (_) {}
+});
+
 document.addEventListener('DOMContentLoaded', async () => {
-  setupAuth();
-  setupTabs();
-  setupModal();
-  setupCustomizer();
-  setupCopilot();
-  setupSimulator();
-  setupStudio();
-  setupBroadcast();
-  setupCrm();
-  setupSettings();
-  setupBackupRestore();
-  setupAutoHealToggle();
+  try {
+    setupAuth();
+    setupTabs();
+    setupModal();
+    setupCustomizer();
+    setupCopilot();
+    setupSimulator();
+    setupStudio();
+    setupBroadcast();
+    setupCrm();
+    setupSettings();
+    setupBackupRestore();
+    setupAutoHealToggle();
+  } catch (setupErr) {
+    console.error('Setup error:', setupErr);
+    const overlay = document.getElementById('admin-login-overlay');
+    if (overlay) overlay.style.display = 'flex';
+  }
 
   // Check auth status
   const token = localStorage.getItem('adminToken');
