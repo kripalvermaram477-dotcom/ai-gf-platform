@@ -31,14 +31,14 @@
     "lastError": null
   },
   {
-    "id": "bot_mwoyl3f0o2kt",
+    "id": "bot_mwoyldlms7vn",
     "token": "555666777:AAAbbbCCCdddEEEfffGGGhhhIIIjjj",
     "owner": "admin",
     "geminiApiKey": "",
     "aiProvider": "auto",
     "status": "stopped",
     "statusMessage": "Initialized",
-    "createdAt": "2026-11-20T12:32:04.236Z",
+    "createdAt": "2026-11-20T12:32:17.434Z",
     "info": {
       "id": null,
       "name": "AdminTestBot",
