@@ -23,10 +23,10 @@
       "maxHistoryMessages": 20
     },
     "stats": {
-      "totalMessages": 15,
+      "totalMessages": 17,
       "activeUsers": 2,
       "errorsCount": 0,
-      "lastActive": "2026-11-20T08:25:26.770Z"
+      "lastActive": "2026-11-20T08:26:02.419Z"
     },
     "lastError": null
   }
