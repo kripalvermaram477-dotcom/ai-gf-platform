@@ -1052,7 +1052,7 @@ function setupCopilot() {
     providerSelect.addEventListener('change', () => {
       const p = providerSelect.value;
       if (p === 'pollinations') {
-        indicator.textContent = '🌸 Engine: Pollinations.AI (Direct Free, Zero API Key needed)';
+        indicator.textContent = '🌸 Engine: Pollinations.AI (Free — 1 reply / 45s)';
       } else if (p === 'gemini') {
         indicator.textContent = '⚡ Engine: Google Gemini API';
       } else {
