@@ -1,6 +1,88 @@
 // State
-function currentRole() {
-  return localStorage.getItem('authRole') || 'admin';
+function setupUserRequirements() {
+  const btnVerify = document.getElementById('btn-user-req-verify');
+  const input = document.getElementById('user-req-telegram-id');
+  const errBox = document.getElementById('user-req-error');
+  const adminBypass = document.getElementById('user-req-admin-bypass');
+
+  if (adminBypass) {
+    adminBypass.addEventListener('click', (e) => {
+      e.preventDefault();
+      const overlay = document.getElementById('user-requirements-overlay');
+      if (overlay) overlay.style.display = 'none';
+    });
+  }
+
+  if (btnVerify) {
+    btnVerify.addEventListener('click', async () => {
+      const telegramId = (input?.value || '').trim();
+      if (!telegramId) {
+        if (errBox) { errBox.style.display = 'block'; errBox.textContent = 'Telegram user ID daalein.'; }
+        return;
+      }
+      btnVerify.disabled = true;
+      btnVerify.textContent = 'Verifying…';
+      try {
+        const res = await authFetch('/api/user/verify-telegram', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ telegramId })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          localStorage.setItem('siteTelegramId', telegramId);
+          const overlay = document.getElementById('user-requirements-overlay');
+          if (overlay) overlay.style.display = 'none';
+          await checkUserRequirements();
+          showToast('Telegram verified! Ab bot connect kar sakte hain.', 'success');
+        } else {
+          if (errBox) {
+            errBox.style.display = 'block';
+            errBox.textContent = data.error || 'Verification failed';
+          }
+        }
+      } catch (e) {
+        if (errBox) { errBox.style.display = 'block'; errBox.textContent = e.message; }
+      } finally {
+        btnVerify.disabled = false;
+        btnVerify.textContent = '✅ Verify & Continue';
+      }
+    });
+  }
+}
+async function checkUserRequirements() {
+  if (currentRole() !== 'user') return;
+  const overlay = document.getElementById('user-requirements-overlay');
+  if (!overlay) return;
+  try {
+    const res = await authFetch('/api/user/me');
+    const me = await res.json();
+    const hasBot = (appState.bots || []).length > 0;
+    const tgOk = Boolean(me.telegramVerified);
+    const studioOk = me.studioAccessUntil && new Date(me.studioAccessUntil) > new Date();
+
+    const reqTg = document.getElementById('req-tg');
+    const reqVerify = document.getElementById('req-verify');
+    const reqBot = document.getElementById('req-bot');
+    const reqStudio = document.getElementById('req-studio');
+    if (reqTg) reqTg.textContent = tgOk ? '✅' : '❌';
+    if (reqVerify) reqVerify.textContent = tgOk ? '✅' : '❌';
+    if (reqBot) reqBot.textContent = hasBot ? '✅' : '❌';
+    if (reqStudio) reqStudio.textContent = studioOk ? '✅' : 'ℹ️';
+
+    if (!tgOk) {
+      overlay.style.display = 'flex';
+      const input = document.getElementById('user-req-telegram-id');
+      const saved = localStorage.getItem('siteTelegramId');
+      if (input && !input.value && saved) input.value = saved;
+      return false;
+    }
+    overlay.style.display = 'none';
+    return true;
+  } catch (_) {
+    if (overlay) overlay.style.display = 'none';
+    return true;
+  }
 }
 
 let appState = {
@@ -71,7 +153,8 @@ window.addEventListener('error', (e) => {
 
 document.addEventListener('DOMContentLoaded', async () => {
   try {
-    setupAuth();
+    setupUserRequirements();
+  setupAuth();
     setupTabs();
     setupModal();
     setupCustomizer();
@@ -209,6 +292,7 @@ async function initApp() {
     await loadBots();
     loadUsage();
     loadReferralInfo();
+    checkUserRequirements();
   }
 }
 
@@ -1413,6 +1497,7 @@ function setupModal() {
         }
         addBotModal.style.display = 'none';
         await loadBots();
+        checkUserRequirements();
       } else {
         if (data.requiresTelegram) {
           verifySection.style.display = 'block';
