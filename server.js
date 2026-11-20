@@ -87,7 +87,8 @@ function botAccess(req, res, next) {
   const isAdmin = req.auth?.role === 'admin';
   const isOwner = req.auth?.role === 'user' && (bot.owner || 'admin') === req.auth.username;
   const adminOwns = isAdmin && (bot.owner || 'admin') === 'admin';
-  if (!adminOwns && !isOwner) {
+  const adminDelete = isAdmin && req.method === 'DELETE';
+  if (!adminOwns && !isOwner && !adminDelete) {
     return res.status(403).json({ error: "You do not have access to this bot" });
   }
   req.bot = bot;
