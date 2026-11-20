@@ -174,8 +174,18 @@ app.post('/api/auth/change-credentials', requireAdmin, (req, res) => {
 // ================= USER ACCOUNT ROUTES =================
 app.post('/api/user/register', rateLimit(60000, 5), async (req, res) => {
   try {
-    const { username, password, ref } = req.body;
+    const { username, password, ref, telegramId } = req.body;
     const account = await store.registerUser({ username, password, ref });
+
+    // If a Telegram ID was verified at the site gate, link it to the account
+    const tgId = (req.body.telegramId || '').trim();
+    if (tgId && /^\d{5,20}$/.test(tgId)) {
+      const result = await checkGroupMembership(tgId);
+      if (result.ok && result.member) {
+        store.setAccountTelegram(account.username, { userId: tgId, displayName: null });
+      }
+    }
+
     const token = store.issueAdminToken(account.username, 30, 'user');
     errorHealer.log('info', `New user registered: ${account.username}`);
     res.json({ success: true, token, role: 'user', account });

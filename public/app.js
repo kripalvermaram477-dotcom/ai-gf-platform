@@ -121,6 +121,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           const data = await res.json();
           if (res.ok && data.token) {
             localStorage.setItem('siteToken', data.token);
+            localStorage.setItem('siteTelegramId', telegramId);
             if (gate) gate.style.display = 'none';
             startAuthFlow();
           } else {
@@ -335,6 +336,8 @@ function setupAuth() {
         const refInput = document.getElementById('login-referral');
         const ref = refInput ? refInput.value.trim() : '';
         if (ref) body.ref = ref;
+        const tgId = localStorage.getItem('siteTelegramId');
+        if (tgId) body.telegramId = tgId;
       }
 
       const res = await fetch(endpoint, {
@@ -1247,6 +1250,22 @@ function setupModal() {
         verifySection.style.display = 'none';
         return true;
       }
+      // Auto-verify if Telegram ID was saved during site gate
+      const savedTgId = localStorage.getItem('siteTelegramId');
+      if (savedTgId && /^\d{5,20}$/.test(savedTgId)) {
+        try {
+          const vRes = await authFetch('/api/user/verify-telegram', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ telegramId: savedTgId })
+          });
+          if (vRes.ok) {
+            telegramVerifiedForUser = true;
+            verifySection.style.display = 'none';
+            return true;
+          }
+        } catch (_) {}
+      }
     } catch (_) {}
     telegramVerifiedForUser = false;
     verifySection.style.display = 'block';
@@ -1296,8 +1315,15 @@ function setupModal() {
     document.getElementById('modal-bot-name').value = '';
     if (verifyInput) verifyInput.value = '';
     if (verifyStatus) verifyStatus.textContent = '';
+    const geminiInput = document.getElementById('modal-gemini-key');
+    if (geminiInput) geminiInput.value = '';
     document.getElementById('modal-bot-token').focus();
     await refreshVerificationState();
+    // Pre-fill Telegram ID from site gate verification
+    if (verifyInput && !verifyInput.value) {
+      const tgId = localStorage.getItem('siteTelegramId');
+      if (tgId) verifyInput.value = tgId;
+    }
   };
 
   btnOpen.addEventListener('click', window.openAddBotModal);
