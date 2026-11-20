@@ -134,6 +134,7 @@ app.get('/api/status', (req, res) => {
     autoHealEnabled: config.autoHealEnabled,
     geminiConfigured: Boolean(config.geminiApiKey),
     pollinationsConfigured: pollinationsKeyActive(),
+    githubConfigured: store.isCloudStorageConfigured(),
     memoryUsage: process.memoryUsage()
   });
 });
@@ -440,18 +441,38 @@ app.delete('/api/bots/:id/users/:userId/history', (req, res) => {
   res.json({ success: true, message: "User conversation history cleared" });
 });
 
-// 17. Broadcast Message to All Bot Users
+// 17. Broadcast Message to All Bot Users or to a Channel/Group
 app.post('/api/bots/:id/broadcast', async (req, res) => {
   try {
-    const { message } = req.body;
+    const { message, target = 'users', chatId } = req.body;
     if (!message || !message.trim()) {
       return res.status(400).json({ error: "Broadcast message cannot be empty" });
     }
+
+    if (target === 'channel') {
+      const destination = String(chatId || '').trim();
+      if (!destination) {
+        return res.status(400).json({ error: "Channel username or chat ID required (e.g. @yourchannel)" });
+      }
+      const result = await botManager.broadcastToChat(req.params.id, destination, message.trim());
+      return res.json(result);
+    }
+
     const result = await botManager.broadcastToBotUsers(req.params.id, message.trim());
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// 17b. Broadcast audience info (how many stored users are reachable)
+app.get('/api/bots/:id/audience', (req, res) => {
+  const audience = store.getAudience(req.params.id);
+  res.json({
+    ...audience,
+    cloudBackup: store.isCloudStorageConfigured(),
+    telegramLimit: 'A bot can only message users who pressed /start at least once.'
+  });
 });
 
 // 18. AI Persona Studio: Craft Persona from 1-line Idea

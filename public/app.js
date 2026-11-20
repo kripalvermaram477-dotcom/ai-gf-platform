@@ -700,12 +700,37 @@ function syncBroadcastSelect() {
   updateBroadcastReach();
 }
 
-function updateBroadcastReach() {
+async function updateBroadcastReach() {
   const select = document.getElementById('broadcast-bot-select');
-  const bot = appState.bots.find(b => b.id === select.value);
+  const targetSelect = document.getElementById('broadcast-target');
   const estimate = document.getElementById('broadcast-reach-estimate');
-  if (bot) {
-    estimate.textContent = `Target Audience: ~${bot.stats?.activeUsers || 0} users who chatted with ${bot.settings?.name}`;
+  const hint = document.getElementById('broadcast-target-hint');
+  const bot = appState.bots.find(b => b.id === select.value);
+  const target = targetSelect?.value || 'users';
+
+  if (!bot) return;
+
+  if (target === 'channel') {
+    estimate.textContent = '📣 Channel/Group post — saare members ko ek saath milega';
+    if (hint) hint.textContent = 'Ek post me poore channel ke members tak message pahunch jayega. Bot ko us channel me admin banana hoga.';
+    return;
+  }
+
+  if (hint) hint.textContent = 'Telegram bot sirf un users ko message kar sakta hai jinhone /start kiya ho. Neeche actual stored count hai.';
+  estimate.textContent = 'Audience load ho raha hai…';
+
+  try {
+    const res = await authFetch(`/api/bots/${bot.id}/audience`);
+    const data = await res.json();
+    const name = bot.settings?.name || bot.id;
+    estimate.textContent = `Target Audience: ${data.reachable || 0} users of ${name} (${data.blocked || 0} blocked/unreachable)`;
+    if (hint) {
+      hint.textContent = data.cloudBackup
+        ? 'Telegram bot sirf un users ko message kar sakta hai jinhone /start kiya ho. Audience cloud me backed up hai.'
+        : '⚠️ Audience cloud me save nahi ho rahi (GITHUB_TOKEN missing) — redeploy pe chat IDs delete ho sakti hain.';
+    }
+  } catch (_) {
+    estimate.textContent = `Target Audience: ~${bot.stats?.activeUsers || 0} users`;
   }
 }
 
@@ -715,7 +740,19 @@ window.setBroadcastText = (text) => {
 
 function setupBroadcast() {
   const select = document.getElementById('broadcast-bot-select');
+  const targetSelect = document.getElementById('broadcast-target');
+  const channelGroup = document.getElementById('broadcast-channel-group');
+  const channelInput = document.getElementById('broadcast-channel-id');
+
+  const syncTargetUi = () => {
+    const isChannel = targetSelect.value === 'channel';
+    if (channelGroup) channelGroup.style.display = isChannel ? 'block' : 'none';
+    updateBroadcastReach();
+  };
+
   select.addEventListener('change', updateBroadcastReach);
+  targetSelect.addEventListener('change', syncTargetUi);
+  syncTargetUi();
 
   const btnSend = document.getElementById('btn-send-broadcast');
   const messageInput = document.getElementById('broadcast-message-text');
@@ -724,6 +761,8 @@ function setupBroadcast() {
   btnSend.addEventListener('click', async () => {
     const botId = select.value;
     const message = messageInput.value.trim();
+    const target = targetSelect.value;
+    const chatId = (channelInput?.value || '').trim();
 
     if (!botId) {
       alert("Please select a bot first!");
@@ -733,8 +772,15 @@ function setupBroadcast() {
       alert("Please type a message to broadcast!");
       return;
     }
+    if (target === 'channel' && !chatId) {
+      alert("Channel username ya chat ID daalein (jaise @yourchannel)");
+      return;
+    }
 
-    if (!confirm("Are you sure you want to broadcast this message to all users?")) return;
+    const confirmText = target === 'channel'
+      ? `Channel/group ${chatId} me ye post bhejein? Saare members dekhenge.`
+      : "Ye message sabhi stored bot users ko bhejna hai?";
+    if (!confirm(confirmText)) return;
 
     btnSend.textContent = "Sending...";
     btnSend.disabled = true;
@@ -743,14 +789,20 @@ function setupBroadcast() {
       const res = await authFetch(`/api/bots/${botId}/broadcast`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message })
+        body: JSON.stringify({ message, target, chatId })
       });
       const data = await res.json();
 
       if (res.ok) {
         resultBox.style.display = 'block';
-        resultBox.innerHTML = `✅ <strong>Broadcast Complete!</strong> Delivered to <strong>${data.sent}</strong> users (${data.failed} failed).`;
+        if (target === 'channel') {
+          resultBox.innerHTML = `✅ <strong>Channel post sent!</strong> ${data.chatId || chatId} ke saare members ko message chala gaya.`;
+        } else {
+          const skipped = data.skipped ? `, ${data.skipped} skipped` : '';
+          resultBox.innerHTML = `✅ <strong>Broadcast Complete!</strong> Delivered to <strong>${data.sent}</strong> users (${data.failed} failed${skipped}).`;
+        }
         showToast("Broadcast finished successfully!", "success");
+        updateBroadcastReach();
       } else {
         alert(`Broadcast error: ${data.error}`);
       }
