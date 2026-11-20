@@ -37,7 +37,7 @@
     "geminiApiKey": "",
     "aiProvider": "auto",
     "status": "stopped",
-    "statusMessage": "Initialized",
+    "statusMessage": "Invalid Telegram Bot Token (401 Unauthorized)",
     "createdAt": "2026-11-20T08:44:51.857Z",
     "info": {
       "id": null,
@@ -60,6 +60,10 @@
       "errorsCount": 0,
       "lastActive": null
     },
-    "lastError": null
+    "lastError": {
+      "message": "Call to 'getMe' failed! (401: Unauthorized)",
+      "code": 401,
+      "timestamp": "2026-11-20T08:44:53.102Z"
+    }
   }
 ]
