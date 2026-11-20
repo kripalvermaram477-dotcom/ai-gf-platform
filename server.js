@@ -723,7 +723,7 @@ app.get('/api/ai/latency', requireAdmin, async (req, res) => {
 // 18c. AI usage & balance dashboard (Pollinations key)
 let aiUsageCache = { at: 0, data: null };
 
-app.get('/api/ai/usage', requireAdmin, async (req, res) => {
+app.get('/api/ai/usage', async (req, res) => {
   const key = activePollinationsKey();
   if (!key) {
     return res.json({ configured: false });

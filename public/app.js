@@ -120,6 +120,7 @@ async function initApp() {
   } else {
     await loadPresets();
     await loadBots();
+    loadUsage();
     loadReferralInfo();
   }
 }
@@ -152,10 +153,37 @@ function applyRoleUi() {
 
   document.querySelectorAll('.tab-btn').forEach((btn) => {
     const tab = btn.getAttribute('data-tab');
-    if (tab === 'settings' || tab === 'logs') {
+    if (tab === 'logs') {
       btn.style.display = role === 'admin' ? '' : 'none';
     }
   });
+
+  // Hide admin-only elements for normal users
+  document.querySelectorAll('.admin-only').forEach((el) => {
+    el.style.display = role === 'admin' ? '' : 'none';
+  });
+
+  // Pollinations completely removed for normal users: provider selects show Gemini only
+  if (role !== 'admin') {
+    const settingsProvider = document.getElementById('settings-ai-provider');
+    if (settingsProvider) {
+      Array.from(settingsProvider.options).forEach((opt) => {
+        if (opt.value !== 'gemini') opt.remove();
+      });
+      settingsProvider.value = 'gemini';
+      settingsProvider.disabled = true;
+    }
+    const modelSelect = document.getElementById('settings-gemini-model');
+    if (modelSelect) modelSelect.disabled = true;
+
+    const modalProvider = document.getElementById('modal-bot-provider');
+    if (modalProvider) {
+      Array.from(modalProvider.options).forEach((opt) => {
+        if (opt.value !== 'gemini') opt.remove();
+      });
+      modalProvider.value = 'gemini';
+    }
+  }
 
   const channelOption = document.querySelector('#broadcast-target option[value="channel"]');
   if (channelOption && role !== 'admin') {
@@ -164,7 +192,7 @@ function applyRoleUi() {
 
   const usageCard = document.querySelector('.usage-card');
   if (usageCard) {
-    usageCard.style.display = role === 'admin' ? '' : 'none';
+    usageCard.style.display = '';
   }
 }
 
@@ -1507,7 +1535,9 @@ function setupCopilot() {
     if (currentRole() !== 'admin') {
       const pollOpt = providerSelect.querySelector('option[value="pollinations"]');
       if (pollOpt) pollOpt.remove();
-      if (providerSelect.value === 'pollinations') providerSelect.value = 'auto';
+      const autoOpt = providerSelect.querySelector('option[value="auto"]');
+      if (autoOpt) autoOpt.remove();
+      if (providerSelect.value !== 'gemini') providerSelect.value = 'gemini';
     }
   }
 
