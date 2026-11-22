@@ -36,8 +36,8 @@
     "owner": "admin",
     "geminiApiKey": "",
     "aiProvider": "pollinations",
-    "status": "stopped",
-    "statusMessage": "Restarting...",
+    "status": "error",
+    "statusMessage": "Call to 'getMe' failed! (502: Bad Gateway)",
     "createdAt": "2026-11-20T13:21:03.675Z",
     "info": {
       "id": 9243555951,
@@ -61,9 +61,9 @@
       "lastActive": "2026-11-21T06:56:38.276Z"
     },
     "lastError": {
-      "message": "Call to 'getMe' failed! (429: Too Many Requests: retry after 5)",
-      "code": 429,
-      "timestamp": "2026-11-22T00:40:19.122Z"
+      "message": "Call to 'getMe' failed! (502: Bad Gateway)",
+      "code": 502,
+      "timestamp": "2026-11-22T00:40:25.388Z"
     }
   }
 ]
