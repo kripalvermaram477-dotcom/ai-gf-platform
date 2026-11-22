@@ -69,6 +69,7 @@ const PUBLIC_API_PATHS = new Set([
   '/api/user/register',
   '/api/user/login',
   '/api/site/verify-telegram',
+  '/api/site/config',
   '/api/site/check'
 ]);
 
@@ -86,11 +87,13 @@ function requireAdmin(req, res, next) {
 function botAccess(req, res, next) {
   const bot = store.getBot(req.params.id);
   if (!bot) return res.status(404).json({ error: "Bot not found" });
-  const isAdmin = req.auth?.role === 'admin';
+  // Admin has unrestricted access to every bot (own + all users' bots).
+  if (req.auth?.role === 'admin') {
+    req.bot = bot;
+    return next();
+  }
   const isOwner = req.auth?.role === 'user' && (bot.owner || 'admin') === req.auth.username;
-  const adminOwns = isAdmin && (bot.owner || 'admin') === 'admin';
-  const adminDelete = isAdmin && req.method === 'DELETE';
-  if (!adminOwns && !isOwner && !adminDelete) {
+  if (!isOwner) {
     return res.status(403).json({ error: "You do not have access to this bot" });
   }
   req.bot = bot;
@@ -115,6 +118,9 @@ app.use((req, res, next) => {
 const _rateBuckets = new Map();
 function rateLimit(windowMs, max) {
   return (req, res, next) => {
+    // Admin is never rate-limited.
+    const auth = req.auth || readAuth(req);
+    if (auth?.role === 'admin') return next();
     const key = `${req.ip}:${req.path}`;
     const now = Date.now();
     const bucket = _rateBuckets.get(key) || { count: 0, resetAt: now + windowMs };
@@ -208,21 +214,38 @@ app.post('/api/user/login', rateLimit(60000, 10), (req, res) => {
 });
 
 app.get('/api/user/me', (req, res) => {
+  if (req.auth?.role === 'admin') {
+    // Admin has no account-level limits or verification requirements.
+    return res.json({
+      username: 'admin',
+      role: 'admin',
+      telegramVerified: true,
+      requiredGroup: null,
+      groupLink: null,
+      unlimited: true
+    });
+  }
   if (req.auth?.role !== 'user') {
     return res.status(403).json({ error: "User account required" });
   }
   const account = store.publicAccount(req.auth.username);
   if (!account) return res.status(404).json({ error: "Account not found" });
+  const group = store.getRequiredGroup();
   res.json({
     ...account,
-    requiredGroup: store.getConfig().requiredGroup || '@gfopiu',
-    groupLink: `https://t.me/${(store.getConfig().requiredGroup || '@gfopiu').replace(/^@/, '')}`
+    requiredGroup: group || null,
+    groupLink: store.getRequiredGroupLink() || null,
+    gateEnabled: Boolean(group)
   });
 });
 
 // ================= TELEGRAM GROUP VERIFICATION =================
 async function checkGroupMembership(userId) {
-  const group = store.getConfig().requiredGroup || '@gfopiu';
+  const group = store.getRequiredGroup();
+  if (!group) {
+    // Gate disabled — nobody needs to join anything.
+    return { ok: true, member: true, status: 'gate_disabled', group: '', groupLink: '' };
+  }
   const bots = store.getBots();
   let lastError = null;
 
@@ -251,8 +274,17 @@ async function checkGroupMembership(userId) {
 }
 
 app.post('/api/user/verify-telegram', async (req, res) => {
+  if (req.auth?.role === 'admin') {
+    // Admin is always verified — no Telegram join needed.
+    return res.json({ success: true, verified: true, admin: true, groupLink: null });
+  }
   if (req.auth?.role !== 'user') {
     return res.status(403).json({ error: "User account required" });
+  }
+
+  // Gate disabled: no Telegram ID or group join needed.
+  if (!store.getRequiredGroup()) {
+    return res.json({ success: true, verified: true, gateEnabled: false, groupLink: null });
   }
 
   const telegramId = String(req.body.telegramId || '').trim();
@@ -286,8 +318,25 @@ app.post('/api/user/verify-telegram', async (req, res) => {
 });
 
 // ================= SITE ACCESS GATE (Telegram group join required) =================
+// Public gate state so the frontend can skip the overlay entirely when no group is set.
+app.get('/api/site/config', (req, res) => {
+  const group = store.getRequiredGroup();
+  res.json({
+    gateEnabled: Boolean(group),
+    requiredGroup: group || null,
+    groupLink: store.getRequiredGroupLink() || null
+  });
+});
+
 app.post('/api/site/verify-telegram', async (req, res) => {
   const telegramId = String(req.body?.telegramId || '').trim();
+
+  // Gate disabled: let anyone in without a Telegram ID.
+  if (!store.getRequiredGroup()) {
+    const token = store.issueAdminToken(`visitor_${telegramId || 'open'}`, 30, 'visitor');
+    return res.json({ success: true, token, groupLink: null, gateEnabled: false });
+  }
+
   if (!/^\d{5,20}$/.test(telegramId)) {
     return res.status(400).json({ error: "Valid numeric Telegram user ID required" });
   }
@@ -401,11 +450,11 @@ app.get('/api/presets', (req, res) => {
   res.json(PERSONALITY_PRESETS);
 });
 
-// 4. List all Bots (users only see their own bots; admin only sees own bots)
+// 4. List all Bots (admin sees every bot; users see their own)
 app.get('/api/bots', (req, res) => {
   const bots = store.getBots();
   if (req.auth?.role === 'admin') {
-    return res.json(bots.filter(b => (b.owner || 'admin') === 'admin'));
+    return res.json(bots);
   }
   res.json(bots.filter(b => (b.owner || 'admin') === req.auth?.username));
 });
@@ -529,10 +578,8 @@ app.post('/api/ai/copilot', async (req, res) => {
 
     const isNew = !botId || botId === '__new__';
     const currentBot = isNew ? null : store.getBot(botId);
-    if (!isNew && req.auth?.role === 'user' && (currentBot?.owner || 'admin') !== req.auth.username) {
-      return res.status(403).json({ error: "You do not have access to this bot" });
-    }
-    if (!isNew && req.auth?.role === 'admin' && (currentBot?.owner || 'admin') !== 'admin') {
+    // Admin has unrestricted access; users may only touch their own bots.
+    if (!isNew && req.auth?.role !== 'admin' && (currentBot?.owner || 'admin') !== req.auth.username) {
       return res.status(403).json({ error: "You do not have access to this bot" });
     }
     const globalConfig = store.getConfig();

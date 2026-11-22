@@ -1,4 +1,8 @@
 // State
+function currentRole() {
+  return localStorage.getItem('authRole') || 'visitor';
+}
+
 function setupUserRequirements() {
   const btnVerify = document.getElementById('btn-user-req-verify');
   const input = document.getElementById('user-req-telegram-id');
@@ -58,7 +62,7 @@ async function checkUserRequirements() {
     const res = await authFetch('/api/user/me');
     const me = await res.json();
     const hasBot = (appState.bots || []).length > 0;
-    const tgOk = Boolean(me.telegramVerified);
+    const tgOk = Boolean(me.telegramVerified) || me.gateEnabled === false;
     const studioOk = me.studioAccessUntil && new Date(me.studioAccessUntil) > new Date();
 
     const reqTg = document.getElementById('req-tg');
@@ -175,6 +179,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Site access gate: Telegram group join required
   const siteToken = localStorage.getItem('siteToken');
   let siteVerified = false;
+  // Admin never sees the join gate.
+  if (currentRole() === 'admin') {
+    localStorage.setItem('siteToken', 'admin-bypass');
+    siteVerified = true;
+  }
+  // No required group configured = gate is OFF for everyone.
+  if (!siteVerified) {
+    try {
+      const cfg = await fetch('/api/site/config').then(r => r.json());
+      if (cfg && cfg.gateEnabled === false) {
+        localStorage.setItem('siteToken', 'skipped');
+        siteVerified = true;
+      }
+    } catch (_) {}
+  }
   if (siteToken === 'admin-bypass' || siteToken === 'skipped') {
     siteVerified = true;
   } else if (siteToken) {
