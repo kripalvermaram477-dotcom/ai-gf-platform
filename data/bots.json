@@ -5,8 +5,8 @@
     "owner": "admin",
     "geminiApiKey": "",
     "aiProvider": "pollinations",
-    "status": "running",
-    "statusMessage": "Online (@Weldome321_bot)",
+    "status": "error",
+    "statusMessage": "Network request for 'getMe' failed!",
     "createdAt": "2026-11-22T01:30:43.223Z",
     "info": {
       "id": 9243555951,
@@ -29,6 +29,10 @@
       "errorsCount": 0,
       "lastActive": null
     },
-    "lastError": null
+    "lastError": {
+      "message": "Network request for 'getMe' failed!",
+      "code": null,
+      "timestamp": "2026-11-22T07:22:05.094Z"
+    }
   }
 ]
