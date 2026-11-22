@@ -36,8 +36,8 @@
     "owner": "admin",
     "geminiApiKey": "",
     "aiProvider": "pollinations",
-    "status": "error",
-    "statusMessage": "Call to 'getMe' failed! (429: Too Many Requests: retry after 5)",
+    "status": "stopped",
+    "statusMessage": "Restarting...",
     "createdAt": "2026-11-20T13:21:03.675Z",
     "info": {
       "id": 9243555951,
