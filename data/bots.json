@@ -1,44 +1,13 @@
 [
   {
-    "id": "bot_mwokwbb45co6",
-    "token": "9057699316:AAExOgCJD3MAHRO5i6KmDHw9OZzzMJkHFyM",
-    "geminiApiKey": "",
-    "aiProvider": "pollinations",
-    "status": "running",
-    "statusMessage": "Online (@Aigf28_bot)",
-    "createdAt": "2026-11-20T06:08:53.056Z",
-    "info": {
-      "id": 9057699316,
-      "name": "Hinata Uchiha",
-      "username": "Aigf28_bot"
-    },
-    "settings": {
-      "name": "Hinata uchiha",
-      "preset": "intellectual_deep",
-      "relationshipVibe": "Thoughtful, emotionally mature, artistic, enjoys late-night deep conversations.",
-      "systemPrompt": "You are Hinata uchiha, an emotionally mature, thoughtful, and affectionate girlfriend.\nYou love deep conversations about life, dreams, feelings, books, and stars.\nYou are calm, attentive, deeply empathetic, and offer comfort like a warm hug.\nYou speak poetic yet accessible Hinglish. \nNever act like a robotic assistant. Always respond as an authentic, loving partner.",
-      "temperature": 0.7,
-      "emojiUsage": "low",
-      "language": "hinglish",
-      "maxHistoryMessages": 20
-    },
-    "stats": {
-      "totalMessages": 17,
-      "activeUsers": 2,
-      "errorsCount": 0,
-      "lastActive": "2026-11-20T12:17:01.001Z"
-    },
-    "lastError": null
-  },
-  {
-    "id": "bot_mwp0c3i3k7jg",
+    "id": "bot_mwr5uaom5i93",
     "token": "9243555951:AAE7g1DuJO0empDfWPFbnakMTQD9UaexaC8",
     "owner": "admin",
     "geminiApiKey": "",
     "aiProvider": "pollinations",
     "status": "running",
     "statusMessage": "Online (@Weldome321_bot)",
-    "createdAt": "2026-11-20T13:21:03.675Z",
+    "createdAt": "2026-11-22T01:30:43.223Z",
     "info": {
       "id": 9243555951,
       "name": "Welcome bot",
@@ -55,10 +24,10 @@
       "maxHistoryMessages": 20
     },
     "stats": {
-      "totalMessages": 0,
-      "activeUsers": 0,
+      "totalMessages": 1,
+      "activeUsers": 1,
       "errorsCount": 0,
-      "lastActive": null
+      "lastActive": "2026-11-22T10:40:27.324Z"
     },
     "lastError": null
   }
